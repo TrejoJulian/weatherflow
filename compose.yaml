@@ -1,0 +1,46 @@
+services:
+    laravel.test:
+        build:
+            context: './vendor/laravel/sail/runtimes/8.4'
+            dockerfile: Dockerfile
+            args:
+                WWWGROUP: '${WWWGROUP}'
+        image: 'sail-8.4/app'
+        extra_hosts:
+            - 'host.docker.internal:host-gateway'
+        ports:
+            - '${APP_PORT:-80}:80'
+            - '${VITE_PORT:-5173}:${VITE_PORT:-5173}'
+        environment:
+            WWWUSER: '${WWWUSER}'
+            LARAVEL_SAIL: 1
+            XDEBUG_MODE: '${SAIL_XDEBUG_MODE:-off}'
+            XDEBUG_CONFIG: '${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}'
+            IGNITION_LOCAL_SITES_PATH: '${PWD}'
+        volumes:
+            - '.:/var/www/html'
+        networks:
+            - sail
+        depends_on:
+            - mongodb
+
+    mongodb:
+        image: 'mongo:7.0'
+        ports:
+            - '${MONGODB_PORT:-27017}:27017'
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: '${MONGODB_USERNAME:-weatherflow}'
+            MONGO_INITDB_ROOT_PASSWORD: '${MONGODB_PASSWORD:-secret}'
+            MONGO_INITDB_DATABASE: '${MONGODB_DATABASE:-weatherflow}'
+        volumes:
+            - 'weatherflow-mongodb:/data/db'
+        networks:
+            - sail
+
+networks:
+    sail:
+        driver: bridge
+
+volumes:
+    weatherflow-mongodb:
+        driver: local
