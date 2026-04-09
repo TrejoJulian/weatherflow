@@ -19,12 +19,7 @@ final class GetAllUsersHandler
         $users = $this->userRepository->findAll();
 
         return array_map(
-            fn ($user) => new UserResponse(
-                id: $user->id()->value(),
-                email: $user->email()->value(),
-                firstName: $user->firstName(),
-                lastName: $user->lastName(),
-            ),
+            fn ($user) => UserResponse::fromEntity($user),
             $users,
         );
     }

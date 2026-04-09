@@ -34,11 +34,6 @@ final class CreateUserHandler
 
         $this->userRepository->save($user);
 
-        return new UserResponse(
-            id: $user->id()->value(),
-            email: $user->email()->value(),
-            firstName: $user->firstName(),
-            lastName: $user->lastName(),
-        );
+        return UserResponse::fromEntity($user);
     }
 }
