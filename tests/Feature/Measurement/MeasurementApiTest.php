@@ -157,13 +157,119 @@ test('returns 404 when measurement does not exist', function () {
 // GET /api/measurements
 // -------------------------------------------------------------------------
 
-test('returns all measurements', function () {
+test('returns all measurements when no filters are provided', function () {
     $stationId = createStation($this, createOwner($this));
 
     $this->postJson('/api/measurements', measurementPayload($stationId));
     $this->postJson('/api/measurements', measurementPayload($stationId, ['temperature' => 30.0]));
 
     $this->getJson('/api/measurements')
+        ->assertStatus(200)
+        ->assertJsonCount(2);
+});
+
+test('filters measurements by station name', function () {
+    $ownerId          = createOwner($this);
+    $centralStationId = createStation($this, $ownerId);
+    $northStationId   = $this->postJson('/api/stations', [
+        'owner_id'     => $ownerId,
+        'station_name' => 'Estación Norte',
+        'latitude'     => -34.5,
+        'longitude'    => -58.4,
+        'sensor_model' => 'Davis Vantage Pro2',
+    ])->json('id');
+
+    $this->postJson('/api/measurements', measurementPayload($centralStationId));
+    $this->postJson('/api/measurements', measurementPayload($northStationId));
+
+    $this->getJson('/api/measurements?station=Central')
+        ->assertStatus(200)
+        ->assertJsonCount(1);
+});
+
+test('returns empty when station name matches no stations', function () {
+    $stationId = createStation($this, createOwner($this));
+    $this->postJson('/api/measurements', measurementPayload($stationId));
+
+    $this->getJson('/api/measurements?station=Inexistente')
+        ->assertStatus(200)
+        ->assertJsonCount(0);
+});
+
+test('filters measurements by minimum temperature', function () {
+    $stationId = createStation($this, createOwner($this));
+
+    $this->postJson('/api/measurements', measurementPayload($stationId, ['temperature' => 10.0]));
+    $this->postJson('/api/measurements', measurementPayload($stationId, ['temperature' => 30.0]));
+
+    $this->getJson('/api/measurements?temp_min=20')
+        ->assertStatus(200)
+        ->assertJsonCount(1)
+        ->assertJsonFragment(['temperature' => 30.0]);
+});
+
+test('filters measurements by maximum temperature', function () {
+    $stationId = createStation($this, createOwner($this));
+
+    $this->postJson('/api/measurements', measurementPayload($stationId, ['temperature' => 10.0]));
+    $this->postJson('/api/measurements', measurementPayload($stationId, ['temperature' => 30.0]));
+
+    $this->getJson('/api/measurements?temp_max=20')
+        ->assertStatus(200)
+        ->assertJsonCount(1)
+        ->assertJsonFragment(['temperature' => 10.0]);
+});
+
+test('filters only alert measurements', function () {
+    $stationId = createStation($this, createOwner($this));
+
+    $this->postJson('/api/measurements', measurementPayload($stationId, ['temperature' => 20.0]));
+    $this->postJson('/api/measurements', measurementPayload($stationId, ['temperature' => 41.0]));
+
+    $this->getJson('/api/measurements?alert=true')
+        ->assertStatus(200)
+        ->assertJsonCount(1)
+        ->assertJsonFragment(['alertStatus' => true]);
+});
+
+test('filters only non-alert measurements', function () {
+    $stationId = createStation($this, createOwner($this));
+
+    $this->postJson('/api/measurements', measurementPayload($stationId, ['temperature' => 20.0]));
+    $this->postJson('/api/measurements', measurementPayload($stationId, ['temperature' => 41.0]));
+
+    $this->getJson('/api/measurements?alert=false')
+        ->assertStatus(200)
+        ->assertJsonCount(1)
+        ->assertJsonFragment(['alertStatus' => false]);
+});
+
+test('filters measurements by specific alert type', function () {
+    $stationId = createStation($this, createOwner($this));
+
+    $this->postJson('/api/measurements', measurementPayload($stationId, ['temperature' => 41.0]));
+    $this->postJson('/api/measurements', measurementPayload($stationId, ['temperature' => -1.0]));
+
+    $this->getJson('/api/measurements?alert_type=extreme_heat')
+        ->assertStatus(200)
+        ->assertJsonCount(1)
+        ->assertJsonFragment(['temperature' => 41.0]);
+});
+
+test('returns 422 when alert_type is invalid', function () {
+    $this->getJson('/api/measurements?alert_type=invalid_type')
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['alert_type']);
+});
+
+test('combines multiple filters correctly', function () {
+    $stationId = createStation($this, createOwner($this));
+
+    $this->postJson('/api/measurements', measurementPayload($stationId, ['temperature' => 10.0]));
+    $this->postJson('/api/measurements', measurementPayload($stationId, ['temperature' => 41.0]));
+    $this->postJson('/api/measurements', measurementPayload($stationId, ['temperature' => 45.0]));
+
+    $this->getJson('/api/measurements?temp_min=40&alert=true')
         ->assertStatus(200)
         ->assertJsonCount(2);
 });

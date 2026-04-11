@@ -17,6 +17,7 @@ use App\Application\Measurement\UpdateMeasurement\UpdateMeasurementHandler;
 use App\Domain\Measurement\Exceptions\MeasurementNotFoundException;
 use App\Domain\WeatherStation\Exceptions\StationNotFoundException;
 use App\Infrastructure\Http\Requests\CreateMeasurementRequest;
+use App\Infrastructure\Http\Requests\GetMeasurementsRequest;
 use App\Infrastructure\Http\Requests\UpdateMeasurementRequest;
 use Illuminate\Http\JsonResponse;
 
@@ -30,9 +31,15 @@ final class MeasurementController
         private readonly DeleteMeasurementHandler    $deleteHandler,
     ) {}
 
-    public function index(): JsonResponse
+    public function index(GetMeasurementsRequest $request): JsonResponse
     {
-        return response()->json($this->getAllHandler->handle(new GetAllMeasurementsQuery()));
+        return response()->json($this->getAllHandler->handle(new GetAllMeasurementsQuery(
+            stationName: $request->input('station'),
+            tempMin:     $request->filled('temp_min') ? (float) $request->input('temp_min') : null,
+            tempMax:     $request->filled('temp_max') ? (float) $request->input('temp_max') : null,
+            alertOnly:   $request->has('alert') ? $request->boolean('alert') : null,
+            alertType:   $request->input('alert_type'),
+        )));
     }
 
     public function show(string $id): JsonResponse

@@ -25,6 +25,5 @@ final class MeasurementModel extends BaseMongoModel
         'humidity'             => 'float',
         'atmospheric_pressure' => 'float',
         'alert_status'         => 'boolean',
-        'alert_types'          => 'array',
     ];
 }

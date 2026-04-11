@@ -12,7 +12,7 @@ use App\Domain\WeatherStation\ValueObjects\Location;
 use App\Domain\WeatherStation\ValueObjects\StationId;
 use Tests\Unit\Domain\WeatherStation\FakeWeatherStationRepository;
 
-function makeStation(): WeatherStation
+function makeWeatherStation(): WeatherStation
 {
     return WeatherStation::create(
         StationId::generate(),
@@ -25,7 +25,7 @@ function makeStation(): WeatherStation
 
 test('returns a station by id', function () {
     $repo = new FakeWeatherStationRepository();
-    $station = makeStation();
+    $station = makeWeatherStation();
     $repo->seed($station);
 
     $response = (new GetStationHandler($repo))->handle(new GetStationQuery($station->id()->value()));
