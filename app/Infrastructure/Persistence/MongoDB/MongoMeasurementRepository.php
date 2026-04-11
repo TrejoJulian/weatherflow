@@ -9,6 +9,7 @@ use App\Domain\Measurement\Enums\AlertType;
 use App\Domain\Measurement\Repositories\MeasurementRepository;
 use App\Domain\Measurement\ValueObjects\AtmosphericPressure;
 use App\Domain\Measurement\ValueObjects\Humidity;
+use App\Domain\Measurement\ValueObjects\MeasurementFilters;
 use App\Domain\Measurement\ValueObjects\MeasurementId;
 use App\Domain\Measurement\ValueObjects\Temperature;
 use App\Domain\WeatherStation\ValueObjects\StationId;
@@ -40,9 +41,15 @@ final class MongoMeasurementRepository implements MeasurementRepository
         return $model ? $this->toDomain($model) : null;
     }
 
-    public function findAll(): array
+    public function findAll(MeasurementFilters $filters = new MeasurementFilters()): array
     {
-        return MeasurementModel::all()
+        return MeasurementModel::query()
+            ->when($filters->stationIds() !== null, fn($query) => $query->whereIn('station_id', $filters->stationIds() ?? []))
+            ->when($filters->tempMin()    !== null, fn($query) => $query->where('temperature', '>=', $filters->tempMin()))
+            ->when($filters->tempMax()    !== null, fn($query) => $query->where('temperature', '<=', $filters->tempMax()))
+            ->when($filters->alertOnly()  !== null, fn($query) => $query->where('alert_status', $filters->alertOnly()))
+            ->when($filters->alertType()  !== null, fn($query) => $query->where('alert_types', 'all', [$filters->alertType()->value]))
+            ->get()
             ->map(fn(MeasurementModel $model) => $this->toDomain($model))
             ->all();
     }
