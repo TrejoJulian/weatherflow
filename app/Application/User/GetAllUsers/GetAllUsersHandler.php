@@ -4,23 +4,18 @@ declare(strict_types=1);
 
 namespace App\Application\User\GetAllUsers;
 
-use App\Application\User\UserResponse;
-use App\Domain\User\Repositories\UserRepository;
+use App\Application\User\AbstractUserHandler;
+use App\Application\User\UserResponseWithSubscriptions;
+use App\Domain\User\Entities\User;
 
-final class GetAllUsersHandler
+final class GetAllUsersHandler extends AbstractUserHandler
 {
-    public function __construct(
-        private readonly UserRepository $userRepository,
-    ) {}
-
-    /** @return UserResponse[] */
+    /** @return UserResponseWithSubscriptions[] */
     public function handle(GetAllUsersQuery $query): array
     {
-        $users = $this->userRepository->findAll();
-
         return array_map(
-            fn ($user) => UserResponse::fromEntity($user),
-            $users,
+            fn (User $user) => UserResponseWithSubscriptions::fromEntity($user, $this->resolveSubscribedStationsById($user)),
+            $this->userRepository->findAll(),
         );
     }
 }

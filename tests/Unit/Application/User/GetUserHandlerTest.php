@@ -4,29 +4,34 @@ declare(strict_types=1);
 
 use App\Application\User\GetUser\GetUserHandler;
 use App\Application\User\GetUser\GetUserQuery;
-use App\Application\User\UserResponse;
+use App\Application\User\UserResponseWithSubscriptions;
 use App\Domain\User\Entities\User;
 use App\Domain\User\Exceptions\UserNotFoundException;
 use App\Domain\User\ValueObjects\Email;
 use App\Domain\User\ValueObjects\UserId;
 use Tests\Unit\Domain\User\FakeUserRepository;
+use Tests\Unit\Domain\WeatherStation\FakeWeatherStationRepository;
 
 test('returns a user response when user exists', function () {
-    $id = UserId::generate();
-    $repo = new FakeUserRepository();
-    $repo->seed(User::create($id, new Email('john@example.com'), 'John', 'Doe'));
+    $id          = UserId::generate();
+    $userRepo    = new FakeUserRepository();
+    $stationRepo = new FakeWeatherStationRepository();
 
-    $response = (new GetUserHandler($repo))->handle(new GetUserQuery($id->value()));
+    $userRepo->seed(User::create($id, new Email('john@example.com'), 'John', 'Doe'));
 
-    expect($response)->toBeInstanceOf(UserResponse::class)
+    $response = (new GetUserHandler($userRepo, $stationRepo))->handle(new GetUserQuery($id->value()));
+
+    expect($response)->toBeInstanceOf(UserResponseWithSubscriptions::class)
         ->and($response->id)->toBe($id->value())
         ->and($response->email)->toBe('john@example.com')
         ->and($response->firstName)->toBe('John')
-        ->and($response->lastName)->toBe('Doe');
+        ->and($response->lastName)->toBe('Doe')
+        ->and($response->subscriptions)->toBe([]);
 });
 
 test('throws when user does not exist', function () {
-    $repo = new FakeUserRepository();
+    $userRepo    = new FakeUserRepository();
+    $stationRepo = new FakeWeatherStationRepository();
 
-    (new GetUserHandler($repo))->handle(new GetUserQuery(UserId::generate()->value()));
+    (new GetUserHandler($userRepo, $stationRepo))->handle(new GetUserQuery(UserId::generate()->value()));
 })->throws(UserNotFoundException::class);

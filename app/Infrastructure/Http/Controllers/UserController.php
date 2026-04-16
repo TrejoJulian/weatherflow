@@ -12,22 +12,31 @@ use App\Application\User\GetAllUsers\GetAllUsersHandler;
 use App\Application\User\GetAllUsers\GetAllUsersQuery;
 use App\Application\User\GetUser\GetUserHandler;
 use App\Application\User\GetUser\GetUserQuery;
+use App\Application\User\SubscribeUserToStation\SubscribeUserToStationCommand;
+use App\Application\User\SubscribeUserToStation\SubscribeUserToStationHandler;
+use App\Application\User\UnsubscribeUserFromStation\UnsubscribeUserFromStationCommand;
+use App\Application\User\UnsubscribeUserFromStation\UnsubscribeUserFromStationHandler;
 use App\Application\User\UpdateUser\UpdateUserCommand;
 use App\Application\User\UpdateUser\UpdateUserHandler;
 use App\Domain\User\Exceptions\DuplicateEmailException;
+use App\Domain\User\Exceptions\UserAlreadySubscribedException;
 use App\Domain\User\Exceptions\UserNotFoundException;
+use App\Domain\WeatherStation\Exceptions\StationNotFoundException;
 use App\Infrastructure\Http\Requests\CreateUserRequest;
+use App\Infrastructure\Http\Requests\SubscribeUserToStationRequest;
 use App\Infrastructure\Http\Requests\UpdateUserRequest;
 use Illuminate\Http\JsonResponse;
 
 final class UserController
 {
     public function __construct(
-        private readonly CreateUserHandler  $createHandler,
-        private readonly GetUserHandler     $getHandler,
-        private readonly GetAllUsersHandler $getAllHandler,
-        private readonly UpdateUserHandler  $updateHandler,
-        private readonly DeleteUserHandler  $deleteHandler,
+        private readonly CreateUserHandler               $createHandler,
+        private readonly GetUserHandler                  $getHandler,
+        private readonly GetAllUsersHandler              $getAllHandler,
+        private readonly UpdateUserHandler               $updateHandler,
+        private readonly DeleteUserHandler               $deleteHandler,
+        private readonly SubscribeUserToStationHandler   $subscribeHandler,
+        private readonly UnsubscribeUserFromStationHandler $unsubscribeHandler,
     ) {}
 
     public function index(): JsonResponse
@@ -85,6 +94,36 @@ final class UserController
     {
         try {
             $this->deleteHandler->handle(new DeleteUserCommand($id));
+
+            return response()->json(null, 204);
+        } catch (UserNotFoundException $e) {
+            return response()->json(['message' => $e->getMessage()], 404);
+        }
+    }
+
+    public function subscribe(SubscribeUserToStationRequest $request, string $userId): JsonResponse
+    {
+        try {
+            $user = $this->subscribeHandler->handle(new SubscribeUserToStationCommand(
+                userId:    $userId,
+                stationId: $request->input('station_id'),
+            ));
+
+            return response()->json($user);
+        } catch (UserNotFoundException|StationNotFoundException $e) {
+            return response()->json(['message' => $e->getMessage()], 404);
+        } catch (UserAlreadySubscribedException $e) {
+            return response()->json(['message' => $e->getMessage()], 409);
+        }
+    }
+
+    public function unsubscribe(string $userId, string $stationId): JsonResponse
+    {
+        try {
+            $this->unsubscribeHandler->handle(new UnsubscribeUserFromStationCommand(
+                userId:    $userId,
+                stationId: $stationId,
+            ));
 
             return response()->json(null, 204);
         } catch (UserNotFoundException $e) {

@@ -7,7 +7,7 @@ use Tests\Feature\RefreshMongoCollections;
 uses(RefreshMongoCollections::class);
 
 beforeEach(function () {
-    $this->collectionsToClean = ['users'];
+    $this->collectionsToClean = ['users', 'weather_stations'];
     $this->cleanCollections();
 });
 
@@ -156,4 +156,110 @@ test('deletes a user and returns 204', function () {
 test('returns 404 when deleting nonexistent user', function () {
     $this->deleteJson('/api/users/00000000-0000-4000-a000-000000000000')
         ->assertStatus(404);
+});
+
+// -------------------------------------------------------------------------
+// POST /api/users/{id}/subscriptions
+// -------------------------------------------------------------------------
+
+test('subscribes a user to a station and returns station details', function () {
+    $user = $this->postJson('/api/users', [
+        'email'      => 'john@example.com',
+        'first_name' => 'John',
+        'last_name'  => 'Doe',
+    ])->json();
+
+    $station = $this->postJson('/api/stations', [
+        'owner_id'     => $user['id'],
+        'station_name' => 'Station Alpha',
+        'latitude'     => -34.6,
+        'longitude'    => -58.3,
+        'sensor_model' => 'Davis',
+    ])->json();
+
+    $this->postJson("/api/users/{$user['id']}/subscriptions", [
+        'station_id' => $station['id'],
+    ])->assertStatus(200)
+        ->assertJsonStructure(['id', 'email', 'firstName', 'lastName', 'subscriptions'])
+        ->assertJsonFragment([
+            'stationId' => $station['id'],
+            'name'      => 'Station Alpha',
+        ]);
+});
+
+test('returns 409 when subscribing to a station already subscribed', function () {
+    $user = $this->postJson('/api/users', [
+        'email'      => 'john@example.com',
+        'first_name' => 'John',
+        'last_name'  => 'Doe',
+    ])->json();
+
+    $station = $this->postJson('/api/stations', [
+        'owner_id'     => $user['id'],
+        'station_name' => 'Station Alpha',
+        'latitude'     => -34.6,
+        'longitude'    => -58.3,
+        'sensor_model' => 'Davis',
+    ])->json();
+
+    $this->postJson("/api/users/{$user['id']}/subscriptions", ['station_id' => $station['id']]);
+    $this->postJson("/api/users/{$user['id']}/subscriptions", ['station_id' => $station['id']])
+        ->assertStatus(409);
+});
+
+test('returns 404 when subscribing to a nonexistent station', function () {
+    $user = $this->postJson('/api/users', [
+        'email'      => 'john@example.com',
+        'first_name' => 'John',
+        'last_name'  => 'Doe',
+    ])->json();
+
+    $this->postJson("/api/users/{$user['id']}/subscriptions", [
+        'station_id' => '00000000-0000-4000-a000-000000000000',
+    ])->assertStatus(404);
+});
+
+test('returns 404 when subscribing a nonexistent user', function () {
+    $this->postJson('/api/users/00000000-0000-4000-a000-000000000000/subscriptions', [
+        'station_id' => '00000000-0000-4000-a000-000000000001',
+    ])->assertStatus(404);
+});
+
+// -------------------------------------------------------------------------
+// DELETE /api/users/{id}/subscriptions/{stationId}
+// -------------------------------------------------------------------------
+
+test('unsubscribes a user from a station', function () {
+    $user = $this->postJson('/api/users', [
+        'email'      => 'john@example.com',
+        'first_name' => 'John',
+        'last_name'  => 'Doe',
+    ])->json();
+
+    $station = $this->postJson('/api/stations', [
+        'owner_id'     => $user['id'],
+        'station_name' => 'Station Alpha',
+        'latitude'     => -34.6,
+        'longitude'    => -58.3,
+        'sensor_model' => 'Davis',
+    ])->json();
+
+    $this->postJson("/api/users/{$user['id']}/subscriptions", ['station_id' => $station['id']]);
+
+    $this->deleteJson("/api/users/{$user['id']}/subscriptions/{$station['id']}")
+        ->assertStatus(204);
+
+    $this->getJson("/api/users/{$user['id']}")
+        ->assertJsonFragment(['subscriptions' => []]);
+});
+
+test('unsubscribe returns 204 even when not subscribed', function () {
+    $user = $this->postJson('/api/users', [
+        'email'      => 'john@example.com',
+        'first_name' => 'John',
+        'last_name'  => 'Doe',
+    ])->json();
+
+    $this->deleteJson("/api/users/{$user['id']}/subscriptions/00000000-0000-4000-a000-000000000000")
+        ->assertStatus(204);
 });

@@ -59,6 +59,14 @@ test('updates measurement and recalculates alerts', function () {
         ->and($measurement->alertTypes())->toContain(AlertType::ExtremeHeat);
 });
 
+test('throws when atmospheric pressure is zero', function () {
+    new AtmosphericPressure(0.0);
+})->throws(InvalidArgumentException::class);
+
+test('throws when atmospheric pressure is negative', function () {
+    new AtmosphericPressure(-10.0);
+})->throws(InvalidArgumentException::class);
+
 test('alert clears after update to normal readings', function () {
     $measurement = makeMeasurement(temp: 41.0);
 

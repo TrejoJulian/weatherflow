@@ -37,6 +37,16 @@ final class MongoWeatherStationRepository implements WeatherStationRepository
         return $model ? $this->toDomain($model) : null;
     }
 
+    public function findByIds(array $ids): array
+    {
+        $stringIds = array_map(fn (StationId $stationId) => $stationId->value(), $ids);
+
+        return WeatherStationModel::whereIn('_id', $stringIds)
+            ->get()
+            ->map(fn (WeatherStationModel $model) => $this->toDomain($model))
+            ->all();
+    }
+
     public function findAll(): array
     {
         return WeatherStationModel::all()

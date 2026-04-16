@@ -13,6 +13,9 @@ interface WeatherStationRepository
 
     public function findById(StationId $id): ?WeatherStation;
 
+    /** @param StationId[] $ids  @return WeatherStation[] */
+    public function findByIds(array $ids): array;
+
     public function findAll(): array;
 
     public function delete(StationId $id): void;
