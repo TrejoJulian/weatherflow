@@ -8,6 +8,7 @@ use App\Domain\User\Entities\User;
 use App\Domain\User\Repositories\UserRepository;
 use App\Domain\User\ValueObjects\Email;
 use App\Domain\User\ValueObjects\UserId;
+use App\Domain\WeatherStation\ValueObjects\StationId;
 
 final class MongoUserRepository implements UserRepository
 {
@@ -16,9 +17,13 @@ final class MongoUserRepository implements UserRepository
         UserModel::updateOrCreate(
             ['_id' => $user->id()->value()],
             [
-                'email'      => $user->email()->value(),
-                'first_name' => $user->firstName(),
-                'last_name'  => $user->lastName(),
+                'email'         => $user->email()->value(),
+                'first_name'    => $user->firstName(),
+                'last_name'     => $user->lastName(),
+                'subscriptions' => array_map(
+                    fn (StationId $stationId) => $stationId->value(),
+                    $user->subscriptions(),
+                ),
             ]
         );
     }
@@ -51,11 +56,19 @@ final class MongoUserRepository implements UserRepository
 
     private function toDomain(UserModel $model): User
     {
+        $rawSubscriptions = is_array($model->subscriptions) ? $model->subscriptions : [];
+
+        $subscriptions = array_map(
+            fn (string $stationId) => StationId::fromString($stationId),
+            $rawSubscriptions,
+        );
+
         return User::create(
             UserId::fromString($model->_id),
             new Email($model->email),
             $model->first_name,
             $model->last_name,
+            $subscriptions,
         );
     }
 }

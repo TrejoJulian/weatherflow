@@ -20,7 +20,7 @@ final class UpdateUserHandler
     public function handle(UpdateUserCommand $command): UserResponse
     {
         $userId = UserId::fromString($command->id);
-        $user = $this->userRepository->findById($userId);
+        $user   = $this->userRepository->findById($userId);
 
         if ($user === null) {
             throw new UserNotFoundException($command->id);

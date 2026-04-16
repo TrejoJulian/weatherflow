@@ -23,6 +23,13 @@ final class FakeWeatherStationRepository implements WeatherStationRepository
         return $this->stations[$id->value()] ?? null;
     }
 
+    public function findByIds(array $ids): array
+    {
+        return array_values(array_filter(
+            array_map(fn (StationId $stationId) => $this->stations[$stationId->value()] ?? null, $ids),
+        ));
+    }
+
     public function findAll(): array
     {
         return array_values($this->stations);

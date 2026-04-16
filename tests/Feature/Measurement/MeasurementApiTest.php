@@ -69,6 +69,14 @@ test('returns 422 when required fields are missing', function () {
         ->assertJsonValidationErrors(['station_id', 'temperature', 'humidity', 'atmospheric_pressure', 'reported_at']);
 });
 
+test('returns 422 when atmospheric pressure is zero or negative', function () {
+    $stationId = createStation($this, createOwner($this));
+
+    $this->postJson('/api/measurements', measurementPayload($stationId, ['atmospheric_pressure' => 0.0]))
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['atmospheric_pressure']);
+});
+
 test('returns 422 when humidity is out of range', function () {
     $stationId = createStation($this, createOwner($this));
 

@@ -13,7 +13,7 @@ final class UpdateMeasurementRequest extends FormRequest
         return [
             'temperature'          => ['required', 'numeric'],
             'humidity'             => ['required', 'numeric', 'between:0,100'],
-            'atmospheric_pressure' => ['required', 'numeric'],
+            'atmospheric_pressure' => ['required', 'numeric', 'gt:0'],
             'reported_at'          => ['required', 'date'],
         ];
     }
