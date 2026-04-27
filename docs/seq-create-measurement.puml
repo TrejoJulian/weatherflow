@@ -1,0 +1,78 @@
+@startuml WeatherFlow - Secuencia: Crear Medición con Evaluación de Alertas
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam sequenceArrowThickness 1.5
+skinparam roundcorner 6
+
+skinparam participant {
+    BackgroundColor White
+    BorderColor #555555
+}
+skinparam sequence {
+    LifeLineBorderColor #888888
+    GroupBackgroundColor #F5F5FF
+    GroupBorderColor #AAAACC
+    DividerBackgroundColor #EEEEEE
+}
+
+title WeatherFlow — Crear Medición con Evaluación de Alertas\nPOST /api/measurements
+
+actor       "Cliente API"              as client
+participant "MeasurementController"    as ctrl     #EFFFEF
+participant "CreateMeasurementRequest" as req      #EFFFEF
+participant "CreateMeasurementHandler" as handler  #DDEEFF
+participant "WeatherStationRepository" as stRepo   #FFF8DC
+participant "Measurement"              as domain   #DDEEFF
+participant "AlertType"                as alert    #DDEEFF
+participant "MeasurementRepository"    as mRepo    #FFF8DC
+database    "MongoDB"                  as db       #FFFDE7
+
+client -> ctrl : POST /api/measurements\n{ station_id, temperature, humidity,\n  atmospheric_pressure, reported_at }
+
+== Validación HTTP ==
+ctrl -> req : validate()
+alt Datos inválidos (tipos, rangos HTTP)
+    req --> ctrl : ValidationException
+    ctrl --> client : 422 Unprocessable Entity\n{ errors: { ... } }
+end
+req --> ctrl : datos validados
+
+== Verificación de existencia de estación ==
+ctrl -> handler : handle(CreateMeasurementCommand)
+handler -> stRepo : findById(StationId)
+stRepo -> db : db.weather_stations.findOne({ _id })
+db --> stRepo : documento | null
+stRepo --> handler : WeatherStation | null
+
+alt Estación no encontrada
+    handler --> ctrl : NotFoundException
+    ctrl --> client : 404 Not Found\n{ message: "Station not found" }
+end
+
+== Construcción del agregado + evaluación de alertas ==
+handler -> domain : Measurement::create(\n  stationId, temperature, humidity,\n  atmosphericPressure, reportedAt\n)
+
+domain -> alert : AlertType::fromReadings(\n  temperature, humidity, pressure\n)
+note right of alert
+  Reglas:
+  temp > 40 °C  → ExtremeHeat
+  temp < 0 °C   → Frost
+  pres < 980 hPa → Storm
+  hum  > 90 %   → CriticalHumidity
+  (pueden combinarse)
+end note
+alert --> domain : AlertType[]
+
+domain --> handler : Measurement\n(alertStatus=true/false, alertTypes=[...])
+
+== Persistencia ==
+handler -> mRepo : save(Measurement)
+mRepo -> db : db.measurements.insertOne({ ... })
+db --> mRepo : ok
+mRepo --> handler : void
+
+== Respuesta ==
+handler --> ctrl : MeasurementResponse DTO
+ctrl --> client : 201 Created\n{ id, station_id, temperature, humidity,\n  atmospheric_pressure, reported_at,\n  alert_status, alert_types }
+
+@enduml

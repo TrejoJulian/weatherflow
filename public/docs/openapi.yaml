@@ -1,0 +1,869 @@
+openapi: 3.0.3
+
+info:
+  title: WeatherFlow API
+  description: |
+    API REST para la plataforma de servicios meteorológicos WeatherFlow.
+    Permite gestionar estaciones de medición, registrar datos climáticos y
+    evaluar alertas automáticas en base a umbrales predefinidos.
+
+    ## Reglas de alerta
+    Las alertas se evalúan automáticamente al crear o actualizar una medición.
+    Los umbrales son estrictos (los valores exactos **no** disparan alerta):
+
+    | Condición                  | Tipo de alerta     |
+    |----------------------------|--------------------|
+    | Temperatura > 40 °C        | Extreme Heat       |
+    | Temperatura < 0 °C         | Frost              |
+    | Presión atmosférica < 980 hPa | Storm           |
+    | Humedad > 90 %             | Critical Humidity  |
+
+    Una medición puede tener múltiples alertas activas simultáneamente.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost/api
+    description: Entorno de desarrollo local (Laravel Sail)
+
+tags:
+  - name: Users
+    description: Gestión de usuarios y sus suscripciones a estaciones
+  - name: Weather Stations
+    description: Gestión de estaciones meteorológicas
+  - name: Measurements
+    description: Registro y consulta de mediciones climáticas
+
+# =============================================================================
+# PATHS
+# =============================================================================
+
+paths:
+
+  # ---------------------------------------------------------------------------
+  # USERS
+  # ---------------------------------------------------------------------------
+
+  /users:
+    get:
+      tags: [Users]
+      summary: Listar todos los usuarios
+      operationId: listUsers
+      responses:
+        '200':
+          description: Lista de usuarios con sus suscripciones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserWithSubscriptions'
+              example:
+                - id: "550e8400-e29b-41d4-a716-446655440000"
+                  email: "john@example.com"
+                  firstName: "John"
+                  lastName: "Doe"
+                  subscriptions: []
+
+    post:
+      tags: [Users]
+      summary: Crear un usuario
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+            example:
+              email: "john@example.com"
+              first_name: "John"
+              last_name: "Doe"
+      responses:
+        '201':
+          description: Usuario creado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserWithSubscriptions'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /users/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+
+    get:
+      tags: [Users]
+      summary: Obtener un usuario por ID
+      operationId: getUser
+      responses:
+        '200':
+          description: Usuario encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserWithSubscriptions'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Users]
+      summary: Actualizar un usuario
+      operationId: updateUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+            example:
+              email: "john.updated@example.com"
+              first_name: "John"
+              last_name: "Updated"
+      responses:
+        '200':
+          description: Usuario actualizado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+    delete:
+      tags: [Users]
+      summary: Eliminar un usuario
+      operationId: deleteUser
+      responses:
+        '204':
+          description: Usuario eliminado correctamente
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /users/{userId}/subscriptions:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        description: UUID del usuario
+        schema:
+          type: string
+          format: uuid
+
+    post:
+      tags: [Users]
+      summary: Suscribir un usuario a una estación
+      operationId: subscribeUserToStation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscribeRequest'
+            example:
+              station_id: "660e8400-e29b-41d4-a716-446655440001"
+      responses:
+        '200':
+          description: Suscripción creada. Devuelve el usuario con la lista actualizada de suscripciones
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserWithSubscriptions'
+        '404':
+          description: Usuario o estación no encontrados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '409':
+          description: El usuario ya estaba suscripto a esa estación
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /users/{userId}/subscriptions/{stationId}:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        description: UUID del usuario
+        schema:
+          type: string
+          format: uuid
+      - name: stationId
+        in: path
+        required: true
+        description: UUID de la estación
+        schema:
+          type: string
+          format: uuid
+
+    delete:
+      tags: [Users]
+      summary: Desuscribir un usuario de una estación
+      description: Operación idempotente — devuelve 204 aunque el usuario no estuviera suscripto.
+      operationId: unsubscribeUserFromStation
+      responses:
+        '204':
+          description: Desuscripción exitosa (o el usuario ya no estaba suscripto)
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ---------------------------------------------------------------------------
+  # WEATHER STATIONS
+  # ---------------------------------------------------------------------------
+
+  /stations:
+    get:
+      tags: [Weather Stations]
+      summary: Listar todas las estaciones
+      operationId: listStations
+      responses:
+        '200':
+          description: Lista de estaciones meteorológicas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Station'
+
+    post:
+      tags: [Weather Stations]
+      summary: Crear una estación meteorológica
+      operationId: createStation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStationRequest'
+            example:
+              owner_id: "550e8400-e29b-41d4-a716-446655440000"
+              station_name: "Estación Central"
+              latitude: -34.6037
+              longitude: -58.3816
+              sensor_model: "Davis Vantage Pro2"
+              status: "active"
+      responses:
+        '201':
+          description: Estación creada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Station'
+        '422':
+          description: Datos inválidos o el owner_id no corresponde a un usuario existente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /stations/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+
+    get:
+      tags: [Weather Stations]
+      summary: Obtener una estación por ID
+      operationId: getStation
+      responses:
+        '200':
+          description: Estación encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Station'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Weather Stations]
+      summary: Actualizar una estación meteorológica
+      operationId: updateStation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStationRequest'
+      responses:
+        '200':
+          description: Estación actualizada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Station'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: Datos inválidos o el owner_id no corresponde a un usuario existente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+    delete:
+      tags: [Weather Stations]
+      summary: Eliminar una estación
+      operationId: deleteStation
+      responses:
+        '204':
+          description: Estación eliminada correctamente
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ---------------------------------------------------------------------------
+  # MEASUREMENTS
+  # ---------------------------------------------------------------------------
+
+  /measurements:
+    get:
+      tags: [Measurements]
+      summary: Listar mediciones con filtros opcionales
+      operationId: listMeasurements
+      parameters:
+        - name: station
+          in: query
+          required: false
+          description: Filtrar por nombre de estación (búsqueda parcial)
+          schema:
+            type: string
+          example: "Central"
+        - name: temp_min
+          in: query
+          required: false
+          description: Temperatura mínima (inclusive)
+          schema:
+            type: number
+            format: float
+          example: 10.0
+        - name: temp_max
+          in: query
+          required: false
+          description: Temperatura máxima (inclusive)
+          schema:
+            type: number
+            format: float
+          example: 35.0
+        - name: alert
+          in: query
+          required: false
+          description: Filtrar solo mediciones con alerta activa (`true`) o sin alerta (`false`)
+          schema:
+            type: string
+            enum: [true, false, "1", "0"]
+          example: "true"
+        - name: alert_type
+          in: query
+          required: false
+          description: Filtrar por tipo de alerta específico
+          schema:
+            type: string
+            enum: [none, extreme_heat, frost, storm, critical_humidity]
+          example: "storm"
+      responses:
+        '200':
+          description: Lista de mediciones filtradas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Measurement'
+
+    post:
+      tags: [Measurements]
+      summary: Registrar una medición
+      description: |
+        Registra una nueva medición y evalúa automáticamente las alertas.
+        Si los valores superan los umbrales, `alertStatus` será `true` y
+        `alertTypes` contendrá los tipos de alerta disparados.
+      operationId: createMeasurement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMeasurementRequest'
+            example:
+              station_id: "660e8400-e29b-41d4-a716-446655440001"
+              temperature: 42.5
+              humidity: 65.0
+              atmospheric_pressure: 1013.25
+              reported_at: "2024-06-15T14:30:00Z"
+      responses:
+        '201':
+          description: Medición registrada. Las alertas se calculan automáticamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Measurement'
+              example:
+                id: "770e8400-e29b-41d4-a716-446655440002"
+                stationId: "660e8400-e29b-41d4-a716-446655440001"
+                temperature: 42.5
+                humidity: 65.0
+                atmosphericPressure: 1013.25
+                reportedAt: "2024-06-15T14:30:00+00:00"
+                alertStatus: true
+                alertTypes: ["Extreme Heat"]
+        '422':
+          description: Datos inválidos o la estación no existe
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorMessage'
+
+  /measurements/{id}:
+    parameters:
+      - $ref: '#/components/parameters/ResourceId'
+
+    get:
+      tags: [Measurements]
+      summary: Obtener una medición por ID
+      operationId: getMeasurement
+      responses:
+        '200':
+          description: Medición encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Measurement'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    put:
+      tags: [Measurements]
+      summary: Actualizar una medición
+      description: Las alertas se recalculan automáticamente con los nuevos valores.
+      operationId: updateMeasurement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMeasurementRequest'
+      responses:
+        '200':
+          description: Medición actualizada. Las alertas se recalculan automáticamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Measurement'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+    delete:
+      tags: [Measurements]
+      summary: Eliminar una medición
+      operationId: deleteMeasurement
+      responses:
+        '204':
+          description: Medición eliminada correctamente
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+# =============================================================================
+# COMPONENTS
+# =============================================================================
+
+components:
+
+  # ---------------------------------------------------------------------------
+  # PARAMETERS
+  # ---------------------------------------------------------------------------
+
+  parameters:
+    ResourceId:
+      name: id
+      in: path
+      required: true
+      description: UUID del recurso
+      schema:
+        type: string
+        format: uuid
+
+  # ---------------------------------------------------------------------------
+  # RESPONSES
+  # ---------------------------------------------------------------------------
+
+  responses:
+    NotFound:
+      description: Recurso no encontrado
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          example:
+            message: "Resource not found."
+
+    Conflict:
+      description: Conflicto — el recurso ya existe con esos datos
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+          example:
+            message: "The email 'john@example.com' is already in use."
+
+    UnprocessableEntity:
+      description: Error de validación
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+              errors:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: string
+            example:
+              message: "The email field is required."
+              errors:
+                email: ["The email field is required."]
+
+  # ---------------------------------------------------------------------------
+  # SCHEMAS
+  # ---------------------------------------------------------------------------
+
+  schemas:
+
+    # --- Users ----------------------------------------------------------------
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        email:
+          type: string
+          format: email
+          example: "john@example.com"
+        firstName:
+          type: string
+          example: "John"
+        lastName:
+          type: string
+          example: "Doe"
+
+    UserWithSubscriptions:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          properties:
+            subscriptions:
+              type: array
+              items:
+                $ref: '#/components/schemas/SubscriptionDetail'
+              example: []
+
+    SubscriptionDetail:
+      type: object
+      description: Detalle de una estación a la que el usuario está suscripto
+      properties:
+        stationId:
+          type: string
+          format: uuid
+          example: "660e8400-e29b-41d4-a716-446655440001"
+        name:
+          type: string
+          example: "Estación Central"
+        latitude:
+          type: number
+          format: float
+          example: -34.6037
+        longitude:
+          type: number
+          format: float
+          example: -58.3816
+        sensorModel:
+          type: string
+          example: "Davis Vantage Pro2"
+        status:
+          type: string
+          enum: [active, inactive]
+          example: "active"
+
+    CreateUserRequest:
+      type: object
+      required: [email, first_name, last_name]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "john@example.com"
+        first_name:
+          type: string
+          example: "John"
+        last_name:
+          type: string
+          example: "Doe"
+
+    UpdateUserRequest:
+      type: object
+      required: [email, first_name, last_name]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "john.updated@example.com"
+        first_name:
+          type: string
+          example: "John"
+        last_name:
+          type: string
+          example: "Updated"
+
+    SubscribeRequest:
+      type: object
+      required: [station_id]
+      properties:
+        station_id:
+          type: string
+          format: uuid
+          example: "660e8400-e29b-41d4-a716-446655440001"
+
+    # --- Weather Stations -----------------------------------------------------
+
+    Station:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "660e8400-e29b-41d4-a716-446655440001"
+        ownerId:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        stationName:
+          type: string
+          example: "Estación Central"
+        latitude:
+          type: number
+          format: float
+          minimum: -90
+          maximum: 90
+          example: -34.6037
+        longitude:
+          type: number
+          format: float
+          minimum: -180
+          maximum: 180
+          example: -58.3816
+        sensorModel:
+          type: string
+          example: "Davis Vantage Pro2"
+        status:
+          type: string
+          enum: [active, inactive]
+          example: "active"
+
+    CreateStationRequest:
+      type: object
+      required: [owner_id, station_name, latitude, longitude, sensor_model]
+      properties:
+        owner_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        station_name:
+          type: string
+          maxLength: 255
+          example: "Estación Central"
+        latitude:
+          type: number
+          format: float
+          minimum: -90
+          maximum: 90
+          example: -34.6037
+        longitude:
+          type: number
+          format: float
+          minimum: -180
+          maximum: 180
+          example: -58.3816
+        sensor_model:
+          type: string
+          maxLength: 255
+          example: "Davis Vantage Pro2"
+        status:
+          type: string
+          enum: [active, inactive]
+          default: active
+          example: "active"
+
+    UpdateStationRequest:
+      type: object
+      required: [owner_id, station_name, latitude, longitude, sensor_model, status]
+      properties:
+        owner_id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        station_name:
+          type: string
+          maxLength: 255
+          example: "Estación Central"
+        latitude:
+          type: number
+          format: float
+          minimum: -90
+          maximum: 90
+          example: -34.6037
+        longitude:
+          type: number
+          format: float
+          minimum: -180
+          maximum: 180
+          example: -58.3816
+        sensor_model:
+          type: string
+          maxLength: 255
+          example: "Davis Vantage Pro2"
+        status:
+          type: string
+          enum: [active, inactive]
+          example: "active"
+
+    # --- Measurements ---------------------------------------------------------
+
+    Measurement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "770e8400-e29b-41d4-a716-446655440002"
+        stationId:
+          type: string
+          format: uuid
+          example: "660e8400-e29b-41d4-a716-446655440001"
+        temperature:
+          type: number
+          format: float
+          description: Temperatura en °C
+          example: 42.5
+        humidity:
+          type: number
+          format: float
+          description: Humedad relativa en porcentaje (0–100)
+          minimum: 0
+          maximum: 100
+          example: 65.0
+        atmosphericPressure:
+          type: number
+          format: float
+          description: Presión atmosférica en hPa (> 0)
+          example: 1013.25
+        reportedAt:
+          type: string
+          format: date-time
+          description: Fecha y hora de la medición (ISO 8601)
+          example: "2024-06-15T14:30:00+00:00"
+        alertStatus:
+          type: boolean
+          description: true si al menos una alerta fue disparada
+          example: true
+        alertTypes:
+          type: array
+          description: Lista de tipos de alerta activos. Contiene "None" si no hay alertas
+          items:
+            type: string
+            enum: [None, "Extreme Heat", Frost, Storm, "Critical Humidity"]
+          example: ["Extreme Heat"]
+
+    CreateMeasurementRequest:
+      type: object
+      required: [station_id, temperature, humidity, atmospheric_pressure, reported_at]
+      properties:
+        station_id:
+          type: string
+          format: uuid
+          example: "660e8400-e29b-41d4-a716-446655440001"
+        temperature:
+          type: number
+          format: float
+          description: Temperatura en °C
+          example: 42.5
+        humidity:
+          type: number
+          format: float
+          description: Humedad relativa (0–100)
+          minimum: 0
+          maximum: 100
+          example: 65.0
+        atmospheric_pressure:
+          type: number
+          format: float
+          description: Presión atmosférica en hPa (debe ser > 0)
+          example: 1013.25
+        reported_at:
+          type: string
+          format: date-time
+          description: Fecha y hora de la medición
+          example: "2024-06-15T14:30:00Z"
+
+    UpdateMeasurementRequest:
+      type: object
+      required: [temperature, humidity, atmospheric_pressure, reported_at]
+      properties:
+        temperature:
+          type: number
+          format: float
+          description: Temperatura en °C
+          example: 38.0
+        humidity:
+          type: number
+          format: float
+          description: Humedad relativa (0–100)
+          minimum: 0
+          maximum: 100
+          example: 72.0
+        atmospheric_pressure:
+          type: number
+          format: float
+          description: Presión atmosférica en hPa (debe ser > 0)
+          example: 975.0
+        reported_at:
+          type: string
+          format: date-time
+          description: Fecha y hora de la medición
+          example: "2024-06-15T15:00:00Z"
+

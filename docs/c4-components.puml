@@ -1,0 +1,65 @@
+@startuml WeatherFlow - C4 Level 3 - Components
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title WeatherFlow — Diagrama de Componentes (C4 Level 3)\nContenedor: WeatherFlow API (Laravel)
+
+LAYOUT_WITH_LEGEND()
+
+Person(apiClient, "Cliente API", "Sistema externo o desarrollador")
+ContainerDb(mongodb, "MongoDB", "MongoDB 7", "Persistencia de datos")
+
+Container_Boundary(laravelApi, "WeatherFlow API (Laravel 13)") {
+
+    ' ── Capa de Infraestructura: Adaptadores Primarios (HTTP) ──────────────────
+    Component(userCtrl, "UserController", "Laravel Controller\n[Infrastructure]", "Gestiona endpoints de usuarios:\nCRUD + suscripciones a estaciones.")
+
+    Component(stationCtrl, "WeatherStationController", "Laravel Controller\n[Infrastructure]", "Gestiona endpoints de estaciones\nmeteorológicas: CRUD.")
+
+    Component(measurementCtrl, "MeasurementController", "Laravel Controller\n[Infrastructure]", "Gestiona endpoints de mediciones:\nCRUD + filtros por fecha y estación.")
+
+    ' ── Capa de Aplicación: Casos de Uso ───────────────────────────────────────
+    Component(userHandlers, "User Handlers", "Application Layer\n[Application]", "Casos de uso: CreateUser, GetUser,\nGetAllUsers, UpdateUser, DeleteUser,\nSubscribeUser, UnsubscribeUser.")
+
+    Component(stationHandlers, "WeatherStation Handlers", "Application Layer\n[Application]", "Casos de uso: CreateStation, GetStation,\nGetAllStations, UpdateStation, DeleteStation.")
+
+    Component(measurementHandlers, "Measurement Handlers", "Application Layer\n[Application]", "Casos de uso: CreateMeasurement, GetMeasurement,\nGetAllMeasurements, UpdateMeasurement, DeleteMeasurement.\nInvoca evaluación de alertas automáticamente.")
+
+    ' ── Capa de Dominio ─────────────────────────────────────────────────────────
+    Component(domain, "Domain Model", "Domain Layer (Pure PHP)\n[Domain]", "Agregados: User, WeatherStation, Measurement.\nValue Objects: Email, Location, Temperature,\nHumidity, AtmosphericPressure.\nReglas de alerta: AlertType enum.\nInterfaces de repositorios (puertos).")
+
+    ' ── Capa de Infraestructura: Adaptadores Secundarios (Repositorios) ────────
+    Component(userRepo, "MongoUserRepository", "Infrastructure / MongoDB\n[Infrastructure]", "Implementa UserRepository.\nPersiste y recupera usuarios en MongoDB.")
+
+    Component(stationRepo, "MongoWeatherStationRepository", "Infrastructure / MongoDB\n[Infrastructure]", "Implementa WeatherStationRepository.\nPersiste y recupera estaciones en MongoDB.")
+
+    Component(measurementRepo, "MongoMeasurementRepository", "Infrastructure / MongoDB\n[Infrastructure]", "Implementa MeasurementRepository.\nPersiste y recupera mediciones en MongoDB.\nSoporta filtros por rango de fechas y estación.")
+}
+
+' ── Relaciones externas ──────────────────────────────────────────────────────
+Rel(apiClient, userCtrl,        "POST/GET/PUT/DELETE /api/users",        "HTTP/JSON")
+Rel(apiClient, stationCtrl,     "POST/GET/PUT/DELETE /api/weather-stations", "HTTP/JSON")
+Rel(apiClient, measurementCtrl, "POST/GET/PUT/DELETE /api/measurements",  "HTTP/JSON")
+
+' ── Controladores → Handlers ─────────────────────────────────────────────────
+Rel(userCtrl,        userHandlers,        "Despacha comandos/queries", "PHP")
+Rel(stationCtrl,     stationHandlers,     "Despacha comandos/queries", "PHP")
+Rel(measurementCtrl, measurementHandlers, "Despacha comandos/queries", "PHP")
+
+' ── Handlers → Domain ────────────────────────────────────────────────────────
+Rel(userHandlers,        domain, "Crea y valida agregados", "PHP")
+Rel(stationHandlers,     domain, "Crea y valida agregados", "PHP")
+Rel(measurementHandlers, domain, "Crea agregados y evalúa alertas", "PHP")
+
+' ── Handlers → Repositorios (via interfaces del Domain) ──────────────────────
+Rel(userHandlers,        userRepo,        "Persiste / recupera User",           "PHP (puerto)")
+Rel(stationHandlers,     stationRepo,     "Persiste / recupera WeatherStation", "PHP (puerto)")
+Rel(measurementHandlers, measurementRepo, "Persiste / recupera Measurement",    "PHP (puerto)")
+Rel(measurementHandlers, stationRepo,     "Valida existencia de la estación",   "PHP (puerto)")
+Rel(userHandlers,        stationRepo,     "Recupera estaciones suscritas",      "PHP (puerto)")
+
+' ── Repositorios → MongoDB ───────────────────────────────────────────────────
+Rel(userRepo,        mongodb, "Lee/escribe colección users",             "MongoDB Driver")
+Rel(stationRepo,     mongodb, "Lee/escribe colección weather_stations",  "MongoDB Driver")
+Rel(measurementRepo, mongodb, "Lee/escribe colección measurements",      "MongoDB Driver")
+
+@enduml

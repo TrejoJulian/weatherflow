@@ -1,0 +1,293 @@
+@startuml WeatherFlow - Diagrama de Clases
+
+title WeatherFlow — Diagrama de Clases\nArquitectura Hexagonal
+
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+
+skinparam package {
+    BackgroundColor<<dominio>>   #DDEEFF
+    BorderColor<<dominio>>       #3A7BD5
+    BackgroundColor<<puertos>>   #FFF8DC
+    BorderColor<<puertos>>       #D4A017
+    BackgroundColor<<adaptadores>> #EFFFEF
+    BorderColor<<adaptadores>>   #2E7D32
+}
+
+skinparam class {
+    BackgroundColor White
+    BorderColor #555555
+    HeaderBackgroundColor #F0F0F0
+}
+
+skinparam interface {
+    BackgroundColor #FFFDE7
+    BorderColor #D4A017
+}
+
+' ─────────────────────────────────────────────
+'  DOMINIO
+' ─────────────────────────────────────────────
+package "Dominio" <<dominio>> {
+
+    package "Entidades" {
+        class User {
+            -id : UserId
+            -email : Email
+            -firstName : string
+            -lastName : string
+            -subscriptions : StationId[]
+            --
+            +create() : User
+            +update() : void
+            +subscribe(StationId) : void
+            +unsubscribe(StationId) : void
+            +isSubscribedTo(StationId) : bool
+        }
+
+        class WeatherStation {
+            -id : StationId
+            -ownerId : UserId
+            -stationName : string
+            -location : Location
+            -sensorModel : string
+            -status : StationStatus
+            --
+            +create() : WeatherStation
+            +update() : void
+        }
+
+        class Measurement {
+            -id : MeasurementId
+            -stationId : StationId
+            -temperature : Temperature
+            -humidity : Humidity
+            -atmosphericPressure : AtmosphericPressure
+            -reportedAt : DateTime
+            -alertStatus : bool
+            -alertTypes : AlertType[]
+            --
+            +create() : Measurement
+            +update() : void
+        }
+    }
+
+    package "Value Objects" {
+        class UserId {
+            +value : string
+        }
+        class Email {
+            +value : string
+        }
+        class StationId {
+            +value : string
+        }
+        class MeasurementId {
+            +value : string
+        }
+        class Location {
+            +latitude : float
+            +longitude : float
+        }
+        class Temperature {
+            +value : float
+        }
+        class Humidity {
+            +value : float
+        }
+        class AtmosphericPressure {
+            +value : float
+        }
+    }
+
+    package "Enumeraciones" {
+        enum StationStatus {
+            Active
+            Inactive
+        }
+
+        enum AlertType {
+            None
+            ExtremeHeat
+            Frost
+            Storm
+            CriticalHumidity
+            --
+            +matches() : bool
+            +fromReadings() : AlertType[]
+        }
+    }
+
+    package "Casos de Uso (Handlers)" {
+        class CreateUserHandler
+        class GetUserHandler
+        class GetAllUsersHandler
+        class UpdateUserHandler
+        class DeleteUserHandler
+        class SubscribeUserToStationHandler
+        class UnsubscribeUserFromStationHandler
+
+        class CreateStationHandler
+        class GetStationHandler
+        class GetAllStationsHandler
+        class UpdateStationHandler
+        class DeleteStationHandler
+
+        class CreateMeasurementHandler
+        class GetMeasurementHandler
+        class GetAllMeasurementsHandler
+        class UpdateMeasurementHandler
+        class DeleteMeasurementHandler
+
+        abstract class AbstractUserHandler {
+            #userRepository : UserRepository
+            #stationRepository : WeatherStationRepository
+            --
+            #resolveSubscribedStationsById() : WeatherStation[]
+        }
+    }
+}
+
+' ─────────────────────────────────────────────
+'  PUERTOS
+' ─────────────────────────────────────────────
+package "Puertos (Interfaces)" <<puertos>> {
+
+    interface UserRepository {
+        +save(User) : void
+        +findById(UserId) : User?
+        +findByEmail(Email) : User?
+        +findAll() : User[]
+        +delete(UserId) : void
+    }
+
+    interface WeatherStationRepository {
+        +save(WeatherStation) : void
+        +findById(StationId) : WeatherStation?
+        +findByIds(StationId[]) : WeatherStation[]
+        +findAll() : WeatherStation[]
+        +delete(StationId) : void
+    }
+
+    interface MeasurementRepository {
+        +save(Measurement) : void
+        +findById(MeasurementId) : Measurement?
+        +findAll(filters) : Measurement[]
+        +delete(MeasurementId) : void
+    }
+}
+
+' ─────────────────────────────────────────────
+'  ADAPTADORES
+' ─────────────────────────────────────────────
+package "Adaptadores" <<adaptadores>> {
+
+    package "Primarios — HTTP" {
+        class UserController {
+            +index() : JsonResponse
+            +show(id) : JsonResponse
+            +store(request) : JsonResponse
+            +update(request, id) : JsonResponse
+            +destroy(id) : JsonResponse
+            +subscribe(request, userId) : JsonResponse
+            +unsubscribe(userId, stationId) : JsonResponse
+        }
+
+        class WeatherStationController {
+            +index() : JsonResponse
+            +show(id) : JsonResponse
+            +store(request) : JsonResponse
+            +update(request, id) : JsonResponse
+            +destroy(id) : JsonResponse
+        }
+
+        class MeasurementController {
+            +index(request) : JsonResponse
+            +show(id) : JsonResponse
+            +store(request) : JsonResponse
+            +update(request, id) : JsonResponse
+            +destroy(id) : JsonResponse
+        }
+    }
+
+    package "Secundarios — MongoDB" {
+        class MongoUserRepository
+        class MongoWeatherStationRepository
+        class MongoMeasurementRepository
+    }
+}
+
+' ─────────────────────────────────────────────
+'  RELACIONES
+' ─────────────────────────────────────────────
+
+' Adaptadores secundarios implementan puertos
+MongoUserRepository            ..|> UserRepository
+MongoWeatherStationRepository  ..|> WeatherStationRepository
+MongoMeasurementRepository     ..|> MeasurementRepository
+
+' Adaptadores primarios usan handlers (via DI)
+UserController             ..> CreateUserHandler
+UserController             ..> GetUserHandler
+UserController             ..> GetAllUsersHandler
+UserController             ..> UpdateUserHandler
+UserController             ..> DeleteUserHandler
+UserController             ..> SubscribeUserToStationHandler
+UserController             ..> UnsubscribeUserFromStationHandler
+WeatherStationController   ..> CreateStationHandler
+WeatherStationController   ..> GetStationHandler
+WeatherStationController   ..> GetAllStationsHandler
+WeatherStationController   ..> UpdateStationHandler
+WeatherStationController   ..> DeleteStationHandler
+MeasurementController      ..> CreateMeasurementHandler
+MeasurementController      ..> GetMeasurementHandler
+MeasurementController      ..> GetAllMeasurementsHandler
+MeasurementController      ..> UpdateMeasurementHandler
+MeasurementController      ..> DeleteMeasurementHandler
+
+' Handlers usan puertos (no adaptadores concretos)
+AbstractUserHandler            --> UserRepository
+AbstractUserHandler            --> WeatherStationRepository
+GetUserHandler                 --|> AbstractUserHandler
+GetAllUsersHandler             --|> AbstractUserHandler
+SubscribeUserToStationHandler  --|> AbstractUserHandler
+
+CreateUserHandler              --> UserRepository
+UpdateUserHandler              --> UserRepository
+DeleteUserHandler              --> UserRepository
+UnsubscribeUserFromStationHandler --> UserRepository
+
+CreateStationHandler           --> WeatherStationRepository
+GetStationHandler              --> WeatherStationRepository
+GetAllStationsHandler          --> WeatherStationRepository
+UpdateStationHandler           --> WeatherStationRepository
+DeleteStationHandler           --> WeatherStationRepository
+
+CreateMeasurementHandler       --> MeasurementRepository
+CreateMeasurementHandler       --> WeatherStationRepository
+GetMeasurementHandler          --> MeasurementRepository
+GetAllMeasurementsHandler      --> MeasurementRepository
+UpdateMeasurementHandler       --> MeasurementRepository
+DeleteMeasurementHandler       --> MeasurementRepository
+
+' Entidades compuestas por sus VOs
+User          *-- UserId
+User          *-- Email
+User          *-- StationId
+
+WeatherStation *-- StationId
+WeatherStation *-- UserId
+WeatherStation *-- Location
+WeatherStation *-- StationStatus
+
+Measurement   *-- MeasurementId
+Measurement   *-- StationId
+Measurement   *-- Temperature
+Measurement   *-- Humidity
+Measurement   *-- AtmosphericPressure
+Measurement   *-- AlertType
+
+
+@enduml
