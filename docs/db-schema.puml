@@ -1,0 +1,105 @@
+@startuml WeatherFlow - Esquema de Base de Datos (MongoDB)
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam roundcorner 6
+
+skinparam class {
+    BackgroundColor White
+    BorderColor #555555
+    HeaderBackgroundColor #3A7BD5
+    FontColor #FFFFFF
+    AttributeFontColor #222222
+}
+
+skinparam note {
+    BackgroundColor #FFFDE7
+    BorderColor #D4A017
+}
+
+title WeatherFlow — Esquema de Base de Datos\nMongoDB · Tres colecciones · Referencias por UUID
+
+' ─────────────────────────────────────────────────────────────────
+'  COLECCIÓN: users
+' ─────────────────────────────────────────────────────────────────
+class "users" as Users <<collection>> {
+    <b>_id</b> : String (UUID)          <i>PK</i>
+    --
+    email          : String    <i>unique</i>
+    first_name     : String
+    last_name      : String
+    subscriptions  : String[]  <i>array de StationId (UUID)</i>
+}
+
+' ─────────────────────────────────────────────────────────────────
+'  COLECCIÓN: weather_stations
+' ─────────────────────────────────────────────────────────────────
+class "weather_stations" as Stations <<collection>> {
+    <b>_id</b> : String (UUID)          <i>PK</i>
+    --
+    owner_id       : String    <i>FK → users._id</i>
+    name           : String
+    location       : Object
+      · latitude   : Double
+      · longitude  : Double
+    sensor_model   : String
+    status         : String    <i>"active" | "inactive"</i>
+}
+
+' ─────────────────────────────────────────────────────────────────
+'  COLECCIÓN: measurements
+' ─────────────────────────────────────────────────────────────────
+class "measurements" as Measurements <<collection>> {
+    <b>_id</b> : String (UUID)          <i>PK</i>
+    --
+    station_id             : String    <i>FK → weather_stations._id</i>
+    temperature            : Double    <i>°C</i>
+    humidity               : Double    <i>% (0–100)</i>
+    atmospheric_pressure   : Double    <i>hPa</i>
+    reported_at            : String
+    alert_status           : Boolean
+    alert_types            : String[]  <i>ver valores posibles ↓</i>
+}
+
+' ─────────────────────────────────────────────────────────────────
+'  NOTAS
+' ─────────────────────────────────────────────────────────────────
+note bottom of Users
+  <b>subscriptions</b> es un array embebido
+  de UUIDs de estaciones. No hay
+  colección de unión: la relación
+  N:M se resuelve dentro del documento.
+end note
+
+note bottom of Measurements
+  <b>alert_types</b> — valores posibles:
+  · "none"
+  · "extreme_heat"  (temp > 40 °C)
+  · "frost"         (temp < 0 °C)
+  · "storm"         (pressure < 980 hPa)
+  · "critical_humidity" (humidity > 90 %)
+  Una medición puede tener múltiples alertas.
+end note
+
+note right of Stations
+  <b>location</b> es un subdocumento
+  embebido (no una referencia):
+  { "latitude": -34.60,
+    "longitude": -58.38 }
+end note
+
+' ─────────────────────────────────────────────────────────────────
+'  RELACIONES
+' ─────────────────────────────────────────────────────────────────
+
+' Un usuario posee 0..* estaciones
+Users "1" --o{ Stations : "owner_id\nposee"
+
+' Una estación tiene 0..* mediciones
+Stations "1" --o{ Measurements : "station_id\nregistra"
+
+' Un usuario puede suscribirse a 0..* estaciones (via array embebido)
+Users }o--o{ Stations : "subscriptions[]\nsuscripto a"
+
+@enduml

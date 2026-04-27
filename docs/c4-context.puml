@@ -1,0 +1,14 @@
+@startuml WeatherFlow - C4 Level 1 - Context
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+title WeatherFlow — Diagrama de Contexto (C4 Level 1)
+
+LAYOUT_WITH_LEGEND()
+
+Person(apiClient, "Cliente API", "Desarrollador o sistema externo\nque consume la API REST\n(p.ej. app móvil, dashboard web,\ndispositivo IoT)")
+
+System(weatherflow, "WeatherFlow", "API REST para gestión de estaciones\nmeteorológicas, mediciones climáticas\ny alertas automáticas.\nLaravel 13 + MongoDB")
+
+Rel(apiClient, weatherflow, "Consulta y registra datos", "HTTPS / JSON")
+
+@enduml

@@ -1,0 +1,20 @@
+@startuml WeatherFlow - C4 Level 2 - Containers
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title WeatherFlow — Diagrama de Contenedores (C4 Level 2)
+
+LAYOUT_WITH_LEGEND()
+
+Person(apiClient, "Cliente API", "Desarrollador o sistema externo\nque consume la API REST")
+
+System_Boundary(weatherflow, "WeatherFlow") {
+
+    Container(laravelApi, "WeatherFlow API", "PHP 8.4 / Laravel 13", "Expone los endpoints REST.\nImplementa la lógica de dominio\ncon arquitectura hexagonal + DDD.")
+
+    ContainerDb(mongodb, "MongoDB", "MongoDB 7\n(Docker local / Atlas en prod)", "Persiste usuarios, estaciones\nmeteorológicas y mediciones.\nColecciones: users, weather_stations, measurements.")
+}
+
+Rel(apiClient, laravelApi, "Realiza peticiones HTTP", "HTTPS / JSON")
+Rel(laravelApi, mongodb, "Lee y escribe documentos", "TCP / MongoDB Wire Protocol")
+
+@enduml

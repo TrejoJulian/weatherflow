@@ -1,0 +1,65 @@
+@startuml WeatherFlow - Secuencia: Historial de Mediciones con Filtros
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam sequenceArrowThickness 1.5
+skinparam roundcorner 6
+
+skinparam participant {
+    BackgroundColor White
+    BorderColor #555555
+}
+skinparam sequence {
+    LifeLineBorderColor #888888
+    GroupBackgroundColor #F5F5FF
+    GroupBorderColor #AAAACC
+    DividerBackgroundColor #EEEEEE
+}
+
+title WeatherFlow — Consultar Historial de Mediciones con Filtros\nGET /api/measurements?station_id=&from=&to=&alert_status=
+
+actor       "Cliente API"               as client
+participant "MeasurementController"     as ctrl     #EFFFEF
+participant "GetAllMeasurementsHandler" as handler  #DDEEFF
+participant "MeasurementRepository"     as repo     #FFF8DC
+database    "MongoDB"                   as db       #FFFDE7
+
+client -> ctrl : GET /api/measurements\n?station_id={uuid}   (opcional)\n&from={ISO8601}      (opcional)\n&to={ISO8601}        (opcional)\n&alert_status={bool} (opcional)
+
+== Construcción de filtros ==
+ctrl -> handler : handle(GetAllMeasurementsQuery\n  { stationId?, from?, to?, alertStatus? })
+
+note right of handler
+  Los filtros son opcionales e independientes.
+  Pueden combinarse libremente.
+  Sin filtros devuelve todas las mediciones.
+end note
+
+== Consulta a la base de datos ==
+handler -> repo : findAll(filters)
+
+repo -> db : db.measurements.find({\n  ...(stationId  && { station_id: stationId }),\n  ...(from||to   && { reported_at:\n       { $gte: from, $lte: to } }),\n  ...(alertStatus && { alert_status: alertStatus })\n})
+
+db --> repo : cursor con documentos
+
+== Mapeo a agregados de dominio ==
+loop por cada documento
+    repo --> repo : Measurement::create(...)\n(reconstruye el agregado)
+end
+
+repo --> handler : Measurement[]
+
+== Construcción de DTOs ==
+loop por cada Measurement
+    handler --> handler : MeasurementResponse DTO
+end
+
+handler --> ctrl : MeasurementResponse[]
+
+== Respuesta ==
+alt Lista con resultados
+    ctrl --> client : 200 OK\n[\n  {\n    "id": "...",\n    "station_id": "...",\n    "temperature": 25.5,\n    "humidity": 65.0,\n    "atmospheric_pressure": 1013.25,\n    "reported_at": "2024-01-01T00:00:00Z",\n    "alert_status": false,\n    "alert_types": ["none"]\n  },\n  ...\n]
+else Lista vacía (sin coincidencias)
+    ctrl --> client : 200 OK\n[]
+end
+
+@enduml

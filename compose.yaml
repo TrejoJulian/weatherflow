@@ -1,5 +1,6 @@
 services:
     laravel.test:
+        container_name: weatherflow-app
         build:
             context: './vendor/laravel/sail/runtimes/8.4'
             dockerfile: Dockerfile

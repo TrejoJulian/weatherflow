@@ -1,0 +1,117 @@
+ @startuml WeatherFlow - Secuencia: Suscribir Usuario a Estación
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam sequenceArrowThickness 1.5
+skinparam roundcorner 6
+
+skinparam participant {
+    BackgroundColor White
+    BorderColor #555555
+}
+skinparam sequence {
+    LifeLineBorderColor #888888
+    GroupBackgroundColor #F5F5FF
+    GroupBorderColor #AAAACC
+    DividerBackgroundColor #EEEEEE
+}
+
+title WeatherFlow — Suscribir / Desuscribir Usuario a Estación\nPOST /api/users/{userId}/subscriptions\nDELETE /api/users/{userId}/subscriptions/{stationId}
+
+actor       "Cliente API"                     as client
+participant "UserController"                  as ctrl        #EFFFEF
+participant "SubscribeUserToStationHandler\n/ UnsubscribeUserFromStationHandler" as handler #DDEEFF
+participant "UserRepository"                  as userRepo    #FFF8DC
+participant "WeatherStationRepository"        as stRepo      #FFF8DC
+participant "User"                            as domain      #DDEEFF
+database    "MongoDB"                         as db          #FFFDE7
+
+group SUSCRIBIR — POST /api/users/{userId}/subscriptions
+    client -> ctrl : POST { station_id }
+
+    == Verificación de usuario ==
+    ctrl -> handler : handle(SubscribeUserToStationCommand)
+    handler -> userRepo : findById(UserId)
+    userRepo -> db : db.users.findOne({ _id: userId })
+    db --> userRepo : documento | null
+    userRepo --> handler : User | null
+
+    alt Usuario no encontrado
+        handler --> ctrl : NotFoundException
+        ctrl --> client : 404 Not Found\n{ message: "User not found" }
+    end
+
+    == Verificación de estación ==
+    handler -> stRepo : findById(StationId)
+    stRepo -> db : db.weather_stations.findOne({ _id: stationId })
+    db --> stRepo : documento | null
+    stRepo --> handler : WeatherStation | null
+
+    alt Estación no encontrada
+        handler --> ctrl : NotFoundException
+        ctrl --> client : 404 Not Found\n{ message: "Station not found" }
+    end
+
+    == Lógica de dominio ==
+    handler -> domain : user.subscribe(StationId)
+    note right of domain
+      Verifica si ya está suscripto.
+      Si ya existe la suscripción
+      lanza DomainException.
+    end note
+
+    alt Ya suscripto
+        domain --> handler : DomainException\n("Already subscribed")
+        handler --> ctrl : ConflictException
+        ctrl --> client : 409 Conflict\n{ message: "Already subscribed" }
+    end
+
+    domain --> handler : (suscripción añadida al agregado)
+
+    == Persistencia ==
+    handler -> userRepo : save(User)
+    userRepo -> db : db.users.updateOne(\n  { _id: userId },\n  { $set: { subscriptions: [...] } }\n)
+    db --> userRepo : ok
+
+    handler --> ctrl : UserResponse DTO\n(incluye subscriptions actualizadas)
+    ctrl --> client : 200 OK\n{ id, email, firstName, lastName,\n  subscriptions: [{ id, name, ... }] }
+end
+
+|||
+
+group DESUSCRIBIR — DELETE /api/users/{userId}/subscriptions/{stationId}
+    client -> ctrl : DELETE (sin body)
+
+    ctrl -> handler : handle(UnsubscribeUserFromStationCommand)
+    handler -> userRepo : findById(UserId)
+    userRepo -> db : db.users.findOne({ _id: userId })
+    db --> userRepo : documento | null
+    userRepo --> handler : User | null
+
+    alt Usuario no encontrado
+        handler --> ctrl : NotFoundException
+        ctrl --> client : 404 Not Found
+    end
+
+    handler -> domain : user.unsubscribe(StationId)
+    note right of domain
+      Verifica que la suscripción exista.
+      Si no existe lanza DomainException.
+    end note
+
+    alt No estaba suscripto
+        domain --> handler : DomainException\n("Not subscribed")
+        handler --> ctrl : NotFoundException
+        ctrl --> client : 404 Not Found\n{ message: "Subscription not found" }
+    end
+
+    domain --> handler : (suscripción eliminada del agregado)
+
+    handler -> userRepo : save(User)
+    userRepo -> db : db.users.updateOne(\n  { _id: userId },\n  { $set: { subscriptions: [...] } }\n)
+    db --> userRepo : ok
+
+    handler --> ctrl : UserResponse DTO
+    ctrl --> client : 200 OK\n{ id, email, firstName, lastName,\n  subscriptions: [...] }
+end
+
+@enduml
