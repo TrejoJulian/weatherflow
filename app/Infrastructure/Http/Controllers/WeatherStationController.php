@@ -15,6 +15,7 @@ use App\Application\WeatherStation\GetStation\GetStationQuery;
 use App\Application\WeatherStation\UpdateStation\UpdateStationCommand;
 use App\Application\WeatherStation\UpdateStation\UpdateStationHandler;
 use App\Domain\User\Exceptions\UserNotFoundException;
+use App\Domain\WeatherStation\Exceptions\StationHasMeasurementsException;
 use App\Domain\WeatherStation\Exceptions\StationNotFoundException;
 use App\Infrastructure\Http\Requests\CreateStationRequest;
 use App\Infrastructure\Http\Requests\UpdateStationRequest;
@@ -91,6 +92,8 @@ final class WeatherStationController
             return response()->json(null, 204);
         } catch (StationNotFoundException $e) {
             return response()->json(['message' => $e->getMessage()], 404);
+        } catch (StationHasMeasurementsException $e) {
+            return response()->json(['message' => $e->getMessage()], 409);
         }
     }
 }

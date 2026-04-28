@@ -7,7 +7,7 @@ use Tests\Feature\RefreshMongoCollections;
 uses(RefreshMongoCollections::class);
 
 beforeEach(function () {
-    $this->collectionsToClean = ['weather_stations', 'users'];
+    $this->collectionsToClean = ['weather_stations', 'users', 'measurements'];
     $this->cleanCollections();
 });
 
@@ -200,4 +200,26 @@ test('deletes a station and returns 204', function () {
 test('returns 404 when deleting nonexistent station', function () {
     $this->deleteJson('/api/stations/00000000-0000-4000-a000-000000000000')
         ->assertStatus(404);
+});
+
+test('returns 409 when deleting a station that has measurements', function () {
+    $ownerId = createUser($this);
+
+    $station = $this->postJson('/api/stations', [
+        'owner_id'     => $ownerId,
+        'station_name' => 'Estación Central',
+        'latitude'     => -34.6037,
+        'longitude'    => -58.3816,
+        'sensor_model' => 'Davis Vantage Pro2',
+    ])->json();
+
+    $this->postJson('/api/measurements', [
+        'station_id'           => $station['id'],
+        'temperature'          => 25.0,
+        'humidity'             => 60.0,
+        'atmospheric_pressure' => 1013.0,
+        'reported_at'          => '2024-01-01T00:00:00Z',
+    ]);
+
+    $this->deleteJson("/api/stations/{$station['id']}")->assertStatus(409);
 });

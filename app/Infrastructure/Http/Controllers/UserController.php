@@ -20,6 +20,7 @@ use App\Application\User\UpdateUser\UpdateUserCommand;
 use App\Application\User\UpdateUser\UpdateUserHandler;
 use App\Domain\User\Exceptions\DuplicateEmailException;
 use App\Domain\User\Exceptions\UserAlreadySubscribedException;
+use App\Domain\User\Exceptions\UserHasStationsException;
 use App\Domain\User\Exceptions\UserNotFoundException;
 use App\Domain\WeatherStation\Exceptions\StationNotFoundException;
 use App\Infrastructure\Http\Requests\CreateUserRequest;
@@ -98,6 +99,8 @@ final class UserController
             return response()->json(null, 204);
         } catch (UserNotFoundException $e) {
             return response()->json(['message' => $e->getMessage()], 404);
+        } catch (UserHasStationsException $e) {
+            return response()->json(['message' => $e->getMessage()], 409);
         }
     }
 

@@ -47,6 +47,11 @@ final class MongoWeatherStationRepository implements WeatherStationRepository
             ->all();
     }
 
+    public function hasStationsOwnedBy(UserId $ownerId): bool
+    {
+        return WeatherStationModel::where('owner_id', $ownerId->value())->exists();
+    }
+
     public function findAll(): array
     {
         return WeatherStationModel::all()

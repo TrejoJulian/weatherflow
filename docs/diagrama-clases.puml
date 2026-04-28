@@ -167,6 +167,7 @@ package "Puertos (Interfaces)" <<puertos>> {
         +save(WeatherStation) : void
         +findById(StationId) : WeatherStation?
         +findByIds(StationId[]) : WeatherStation[]
+        +hasStationsOwnedBy(UserId) : bool
         +findAll() : WeatherStation[]
         +delete(StationId) : void
     }
@@ -175,6 +176,7 @@ package "Puertos (Interfaces)" <<puertos>> {
         +save(Measurement) : void
         +findById(MeasurementId) : Measurement?
         +findAll(filters) : Measurement[]
+        +hasMeasurementsForStation(StationId) : bool
         +delete(MeasurementId) : void
     }
 }
@@ -257,6 +259,7 @@ SubscribeUserToStationHandler  --|> AbstractUserHandler
 CreateUserHandler              --> UserRepository
 UpdateUserHandler              --> UserRepository
 DeleteUserHandler              --> UserRepository
+DeleteUserHandler              --> WeatherStationRepository
 UnsubscribeUserFromStationHandler --> UserRepository
 
 CreateStationHandler           --> WeatherStationRepository
@@ -264,6 +267,7 @@ GetStationHandler              --> WeatherStationRepository
 GetAllStationsHandler          --> WeatherStationRepository
 UpdateStationHandler           --> WeatherStationRepository
 DeleteStationHandler           --> WeatherStationRepository
+DeleteStationHandler           --> MeasurementRepository
 
 CreateMeasurementHandler       --> MeasurementRepository
 CreateMeasurementHandler       --> WeatherStationRepository
