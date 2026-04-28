@@ -158,6 +158,24 @@ test('returns 404 when deleting nonexistent user', function () {
         ->assertStatus(404);
 });
 
+test('returns 409 when deleting a user who owns stations', function () {
+    $user = $this->postJson('/api/users', [
+        'email'      => 'john@example.com',
+        'first_name' => 'John',
+        'last_name'  => 'Doe',
+    ])->json();
+
+    $this->postJson('/api/stations', [
+        'owner_id'     => $user['id'],
+        'station_name' => 'Station Alpha',
+        'latitude'     => -34.6,
+        'longitude'    => -58.3,
+        'sensor_model' => 'Davis',
+    ]);
+
+    $this->deleteJson("/api/users/{$user['id']}")->assertStatus(409);
+});
+
 // -------------------------------------------------------------------------
 // POST /api/users/{id}/subscriptions
 // -------------------------------------------------------------------------

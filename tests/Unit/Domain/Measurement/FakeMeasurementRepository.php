@@ -8,6 +8,7 @@ use App\Domain\Measurement\Entities\Measurement;
 use App\Domain\Measurement\Repositories\MeasurementRepository;
 use App\Domain\Measurement\ValueObjects\MeasurementFilters;
 use App\Domain\Measurement\ValueObjects\MeasurementId;
+use App\Domain\WeatherStation\ValueObjects\StationId;
 
 final class FakeMeasurementRepository implements MeasurementRepository
 {
@@ -29,6 +30,14 @@ final class FakeMeasurementRepository implements MeasurementRepository
         return array_values(array_filter(
             $this->measurements,
             fn(Measurement $measurement) => $this->matchesFilters($measurement, $filters),
+        ));
+    }
+
+    public function hasMeasurementsForStation(StationId $stationId): bool
+    {
+        return !empty(array_filter(
+            $this->measurements,
+            fn (Measurement $measurement) => $measurement->stationId()->value() === $stationId->value(),
         ));
     }
 

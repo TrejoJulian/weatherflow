@@ -54,6 +54,11 @@ final class MongoMeasurementRepository implements MeasurementRepository
             ->all();
     }
 
+    public function hasMeasurementsForStation(StationId $stationId): bool
+    {
+        return MeasurementModel::where('station_id', $stationId->value())->exists();
+    }
+
     public function delete(MeasurementId $id): void
     {
         MeasurementModel::destroy($id->value());

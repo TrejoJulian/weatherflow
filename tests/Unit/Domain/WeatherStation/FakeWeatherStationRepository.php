@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\WeatherStation;
 
+use App\Domain\User\ValueObjects\UserId;
 use App\Domain\WeatherStation\Entities\WeatherStation;
 use App\Domain\WeatherStation\Repositories\WeatherStationRepository;
 use App\Domain\WeatherStation\ValueObjects\StationId;
@@ -27,6 +28,14 @@ final class FakeWeatherStationRepository implements WeatherStationRepository
     {
         return array_values(array_filter(
             array_map(fn (StationId $stationId) => $this->stations[$stationId->value()] ?? null, $ids),
+        ));
+    }
+
+    public function hasStationsOwnedBy(UserId $ownerId): bool
+    {
+        return !empty(array_filter(
+            $this->stations,
+            fn (WeatherStation $station) => $station->ownerId()->value() === $ownerId->value(),
         ));
     }
 

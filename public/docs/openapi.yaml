@@ -145,6 +145,17 @@ paths:
           description: Usuario eliminado correctamente
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          description: El usuario tiene estaciones meteorológicas a su cargo y no puede eliminarse
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example:
+                message: "User 550e8400-e29b-41d4-a716-446655440000 owns one or more weather stations and cannot be deleted."
 
   /users/{userId}/subscriptions:
     parameters:
@@ -333,6 +344,17 @@ paths:
           description: Estación eliminada correctamente
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          description: La estación tiene mediciones asociadas y no puede eliminarse
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example:
+                message: "Station 660e8400-e29b-41d4-a716-446655440001 has measurements and cannot be deleted."
 
   # ---------------------------------------------------------------------------
   # MEASUREMENTS
@@ -434,7 +456,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorMessage'
+                type: object
+                properties:
+                  message:
+                    type: string
+              example:
+                message: "Weather station not found: '660e8400-e29b-41d4-a716-446655440001'"
 
   /measurements/{id}:
     parameters:

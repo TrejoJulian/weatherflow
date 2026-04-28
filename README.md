@@ -78,13 +78,17 @@ Esto levanta dos contenedores: la aplicación Laravel (puerto 80) y MongoDB (pue
 ./vendor/bin/sail artisan key:generate
 ```
 
+> **Error de permisos:** Si aparece _Permission denied_ sobre `storage/logs/laravel.log` o `.env`, corré esto primero y luego repetí el comando:
+> ```bash
+> docker exec -u root weatherflow-app chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache
+> docker exec -u root weatherflow-app chmod 666 /var/www/html/.env
+> ```
+
 ### 7. Verificar que todo funciona
 
 ```bash
 ./vendor/bin/sail artisan about
 ```
-
-La API ya está disponible en **http://localhost**.
 
 ---
 
