@@ -1,23 +1,21 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Providers;
 
+use App\Domain\Measurement\Repositories\MeasurementRepository;
+use App\Infrastructure\Persistence\MongoDB\MongoMeasurementRepository;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
-        //
+        $this->app->bind(MeasurementRepository::class, MongoMeasurementRepository::class);
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
         Http::globalRequestMiddleware(
