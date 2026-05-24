@@ -9,6 +9,7 @@ use App\Domain\Measurement\Repositories\MeasurementRepository;
 use App\Domain\Measurement\ValueObjects\MeasurementFilters;
 use App\Domain\Measurement\ValueObjects\MeasurementId;
 use App\Domain\WeatherStation\ValueObjects\StationId;
+use DateTimeInterface;
 
 final class FakeMeasurementRepository implements MeasurementRepository
 {
@@ -55,10 +56,18 @@ final class FakeMeasurementRepository implements MeasurementRepository
 
     private function matchesFilters(Measurement $measurement, MeasurementFilters $filters): bool
     {
+        $reportedAt = $measurement->reportedAt()->format(DateTimeInterface::ATOM);
+
         return ($filters->stationName() === null || stripos($measurement->stationName(), $filters->stationName()) !== false)
-            && ($filters->tempMin()    === null || $measurement->temperature()->value() >= $filters->tempMin())
-            && ($filters->tempMax()    === null || $measurement->temperature()->value() <= $filters->tempMax())
-            && ($filters->alertOnly()  === null || $measurement->alertStatus() === $filters->alertOnly())
-            && ($filters->alertType()  === null || in_array($filters->alertType(), $measurement->alertTypes(), true));
+            && ($filters->tempMin()      === null || $measurement->temperature()->value() >= $filters->tempMin())
+            && ($filters->tempMax()      === null || $measurement->temperature()->value() <= $filters->tempMax())
+            && ($filters->alertOnly()    === null || $measurement->alertStatus() === $filters->alertOnly())
+            && ($filters->alertType()    === null || in_array($filters->alertType(), $measurement->alertTypes(), true))
+            && ($filters->dateFrom()     === null || $reportedAt >= $filters->dateFrom())
+            && ($filters->dateTo()       === null || $reportedAt <= $filters->dateTo())
+            && ($filters->humidityMin()  === null || $measurement->humidity()->value() >= $filters->humidityMin())
+            && ($filters->humidityMax()  === null || $measurement->humidity()->value() <= $filters->humidityMax())
+            && ($filters->pressureMin()  === null || $measurement->atmosphericPressure()->value() >= $filters->pressureMin())
+            && ($filters->pressureMax()  === null || $measurement->atmosphericPressure()->value() <= $filters->pressureMax());
     }
 }

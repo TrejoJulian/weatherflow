@@ -2,13 +2,30 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\Http;
 use Tests\Feature\RefreshMongoCollections;
 
 uses(RefreshMongoCollections::class);
 
+function fakeCoreStation(string $stationId, string $name = 'Central Buenos Aires'): void
+{
+    Http::fake([
+        "http://core/api/stations/{$stationId}" => Http::response([
+            'id'          => $stationId,
+            'ownerId'     => '00000000-0000-4000-a000-000000000002',
+            'stationName' => $name,
+            'latitude'    => -34.6,
+            'longitude'   => -58.4,
+            'sensorModel' => 'Davis',
+            'status'      => 'active',
+        ], 200),
+    ]);
+}
+
 beforeEach(function () {
     $this->collectionsToClean = ['measurements'];
     $this->cleanCollections();
+    fakeCoreStation('00000000-0000-4000-a000-000000000001');
 });
 
 function measurementPayload(array $overrides = []): array
@@ -33,8 +50,20 @@ test('creates a measurement and returns 201', function () {
         ->assertJsonFragment([
             'alertStatus' => false,
             'alertTypes'  => ['None'],
-            'stationName' => '',
+            'stationName' => 'Central Buenos Aires',
         ]);
+});
+
+test('returns 404 when station does not exist in Core', function () {
+    $unknownStationId = '00000000-0000-4000-a000-000000000099';
+
+    Http::fake([
+        "http://core/api/stations/{$unknownStationId}" => Http::response(['message' => 'Station not found.'], 404),
+    ]);
+
+    $this->postJson('/api/measurements', measurementPayload(['station_id' => $unknownStationId]))
+        ->assertStatus(404)
+        ->assertJsonFragment(['message' => "Weather station not found: '{$unknownStationId}'"]);
 });
 
 test('returns 422 when required fields are missing', function () {
@@ -111,7 +140,10 @@ test('returns a measurement by id', function () {
 
     $this->getJson("/api/measurements/{$created['id']}")
         ->assertStatus(200)
-        ->assertJsonFragment(['id' => $created['id']]);
+        ->assertJsonFragment([
+            'id'          => $created['id'],
+            'stationName' => 'Central Buenos Aires',
+        ]);
 });
 
 test('returns 404 when measurement does not exist', function () {
