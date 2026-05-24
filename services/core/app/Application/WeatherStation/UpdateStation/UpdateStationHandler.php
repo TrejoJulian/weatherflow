@@ -13,6 +13,7 @@ use App\Domain\WeatherStation\Exceptions\StationNotFoundException;
 use App\Domain\WeatherStation\Repositories\WeatherStationRepository;
 use App\Domain\WeatherStation\ValueObjects\Location;
 use App\Domain\WeatherStation\ValueObjects\StationId;
+use App\Infrastructure\Queue\Jobs\StationRenamedJob;
 
 final class UpdateStationHandler
 {
@@ -35,6 +36,8 @@ final class UpdateStationHandler
             throw new UserNotFoundException($command->ownerId);
         }
 
+        $oldName = $station->stationName();
+
         $station->update(
             $ownerId,
             $command->stationName,
@@ -42,6 +45,11 @@ final class UpdateStationHandler
             $command->sensorModel,
             StationStatus::from($command->status),
         );
+
+        if ($oldName !== $command->stationName) {
+            dispatch(new StationRenamedJob($station->id()->value(), $command->stationName))
+                ->onQueue('station-events');
+        }
 
         $this->stationRepository->save($station);
 
