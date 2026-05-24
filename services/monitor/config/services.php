@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'core' => [
+        'url' => env('CORE_SERVICE_URL', 'http://core/api'),
+    ],
+
 ];

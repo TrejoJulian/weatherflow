@@ -1,47 +1,94 @@
 services:
-    laravel.test:
-        container_name: weatherflow-app
-        build:
-            context: './vendor/laravel/sail/runtimes/8.4'
-            dockerfile: Dockerfile
-            args:
-                WWWGROUP: '${WWWGROUP}'
-        image: 'sail-8.4/app'
-        extra_hosts:
-            - 'host.docker.internal:host-gateway'
-        ports:
-            - '${APP_PORT:-80}:80'
-            - '${VITE_PORT:-5173}:${VITE_PORT:-5173}'
-        environment:
-            WWWUSER: '${WWWUSER}'
-            LARAVEL_SAIL: 1
-            XDEBUG_MODE: '${SAIL_XDEBUG_MODE:-off}'
-            XDEBUG_CONFIG: '${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}'
-            IGNITION_LOCAL_SITES_PATH: '${PWD}'
-        volumes:
-            - './services/core:/var/www/html'
-        networks:
-            - sail
-        depends_on:
-            - mongodb
 
-    mongodb:
-        image: 'mongo:7.0'
-        ports:
-            - '${MONGODB_PORT:-27017}:27017'
-        environment:
-            MONGO_INITDB_ROOT_USERNAME: '${MONGODB_USERNAME:-weatherflow}'
-            MONGO_INITDB_ROOT_PASSWORD: '${MONGODB_PASSWORD:-secret}'
-            MONGO_INITDB_DATABASE: '${MONGODB_DATABASE:-weatherflow}'
-        volumes:
-            - 'weatherflow-mongodb:/data/db'
-        networks:
-            - sail
+  core:
+    container_name: weatherflow-core
+    build:
+      context: './services/core/vendor/laravel/sail/runtimes/8.4'
+      dockerfile: Dockerfile
+      args:
+        WWWGROUP: '${WWWGROUP:-1000}'
+    image: 'sail-8.4/core'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    ports:
+      - '8080:80'
+    environment:
+      WWWUSER: '${WWWUSER:-1000}'
+      LARAVEL_SAIL: 1
+      XDEBUG_MODE: '${SAIL_XDEBUG_MODE:-off}'
+      XDEBUG_CONFIG: '${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}'
+    volumes:
+      - './services/core:/var/www/html'
+    networks:
+      - weatherflow
+    depends_on:
+      - mongodb_core
+
+  monitor:
+    container_name: weatherflow-monitor
+    build:
+      context: './services/monitor/vendor/laravel/sail/runtimes/8.4'
+      dockerfile: Dockerfile
+      args:
+        WWWGROUP: '${WWWGROUP:-1000}'
+    image: 'sail-8.4/monitor'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    ports:
+      - '8081:80'
+    environment:
+      WWWUSER: '${WWWUSER:-1000}'
+      LARAVEL_SAIL: 1
+      XDEBUG_MODE: '${SAIL_XDEBUG_MODE:-off}'
+      XDEBUG_CONFIG: '${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}'
+    volumes:
+      - './services/monitor:/var/www/html'
+    networks:
+      - weatherflow
+    depends_on:
+      - mongodb_monitor
+      - redis
+
+  mongodb_core:
+    container_name: mongodb_core
+    image: 'mongo:7.0'
+    ports:
+      - '27017:27017'
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: 'weatherflow'
+      MONGO_INITDB_ROOT_PASSWORD: 'secret'
+    volumes:
+      - 'core-mongodb-data:/data/db'
+    networks:
+      - weatherflow
+
+  mongodb_monitor:
+    container_name: mongodb_monitor
+    image: 'mongo:7.0'
+    ports:
+      - '27018:27017'
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: 'weatherflow'
+      MONGO_INITDB_ROOT_PASSWORD: 'secret'
+    volumes:
+      - 'monitor-mongodb-data:/data/db'
+    networks:
+      - weatherflow
+
+  redis:
+    container_name: weatherflow-redis
+    image: 'redis:7-alpine'
+    ports:
+      - '6379:6379'
+    networks:
+      - weatherflow
 
 networks:
-    sail:
-        driver: bridge
+  weatherflow:
+    driver: bridge
 
 volumes:
-    weatherflow-mongodb:
-        driver: local
+  core-mongodb-data:
+    driver: local
+  monitor-mongodb-data:
+    driver: local
