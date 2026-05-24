@@ -34,11 +34,17 @@ final class MeasurementController
     public function index(GetMeasurementsRequest $request): JsonResponse
     {
         return response()->json($this->getAllHandler->handle(new GetAllMeasurementsQuery(
-            stationName: $request->input('station'),
-            tempMin:     $request->filled('temp_min') ? (float) $request->input('temp_min') : null,
-            tempMax:     $request->filled('temp_max') ? (float) $request->input('temp_max') : null,
-            alertOnly:   $request->has('alert') ? $request->boolean('alert') : null,
-            alertType:   $request->input('alert_type'),
+            stationName:  $request->input('station_name'),
+            tempMin:      $request->filled('temp_min')      ? (float) $request->input('temp_min')      : null,
+            tempMax:      $request->filled('temp_max')      ? (float) $request->input('temp_max')      : null,
+            alertOnly:    $request->has('alert')            ? $request->boolean('alert')               : null,
+            alertType:    $request->input('alert_type'),
+            dateFrom:     $request->input('date_from'),
+            dateTo:       $request->input('date_to'),
+            humidityMin:  $request->filled('humidity_min')  ? (float) $request->input('humidity_min')  : null,
+            humidityMax:  $request->filled('humidity_max')  ? (float) $request->input('humidity_max')  : null,
+            pressureMin:  $request->filled('pressure_min')  ? (float) $request->input('pressure_min')  : null,
+            pressureMax:  $request->filled('pressure_max')  ? (float) $request->input('pressure_max')  : null,
         )));
     }
 

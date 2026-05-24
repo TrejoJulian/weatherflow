@@ -7,10 +7,16 @@ namespace App\Application\Measurement\GetAllMeasurements;
 final class GetAllMeasurementsQuery
 {
     public function __construct(
-        public readonly ?string $stationName = null,
-        public readonly ?float  $tempMin     = null,
-        public readonly ?float  $tempMax     = null,
-        public readonly ?bool   $alertOnly   = null,
-        public readonly ?string $alertType   = null,
+        public readonly ?string $stationName  = null,
+        public readonly ?float  $tempMin      = null,
+        public readonly ?float  $tempMax      = null,
+        public readonly ?bool   $alertOnly    = null,
+        public readonly ?string $alertType    = null,
+        public readonly ?string $dateFrom     = null,
+        public readonly ?string $dateTo       = null,
+        public readonly ?float  $humidityMin  = null,
+        public readonly ?float  $humidityMax  = null,
+        public readonly ?float  $pressureMin  = null,
+        public readonly ?float  $pressureMax  = null,
     ) {}
 }
