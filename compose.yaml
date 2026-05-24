@@ -83,6 +83,18 @@ services:
     networks:
       - weatherflow
 
+  rabbitmq:
+    container_name: weatherflow-rabbitmq
+    image: 'rabbitmq:3-management-alpine'
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    environment:
+      RABBITMQ_DEFAULT_USER: weatherflow
+      RABBITMQ_DEFAULT_PASS: secret
+    networks:
+      - weatherflow
+
 networks:
   weatherflow:
     driver: bridge

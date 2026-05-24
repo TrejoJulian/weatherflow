@@ -9,6 +9,7 @@ use App\Domain\WeatherStation\Exceptions\StationNotFoundException;
 use App\Domain\WeatherStation\StationSummary;
 use Tests\Unit\Domain\Measurement\FakeMeasurementRepository;
 use Tests\Unit\Infrastructure\Clients\FakeStationClient;
+use Tests\Unit\Infrastructure\Messaging\FakeEventPublisher;
 
 function makeStationSummary(
     string $stationId = '00000000-0000-4000-a000-000000000001',
@@ -32,7 +33,7 @@ test('creates a measurement and returns a response', function () {
     $stationClient = new FakeStationClient();
     $stationClient->seed(makeStationSummary());
 
-    $handler  = new CreateMeasurementHandler(new FakeMeasurementRepository(), $stationClient);
+    $handler  = new CreateMeasurementHandler(new FakeMeasurementRepository(), $stationClient, new FakeEventPublisher());
     $response = $handler->handle(makeCreateCommand('00000000-0000-4000-a000-000000000001'));
 
     expect($response)->toBeInstanceOf(MeasurementResponse::class)
@@ -47,7 +48,7 @@ test('calculates extreme heat alert on creation', function () {
     $stationClient = new FakeStationClient();
     $stationClient->seed(makeStationSummary());
 
-    $handler  = new CreateMeasurementHandler(new FakeMeasurementRepository(), $stationClient);
+    $handler  = new CreateMeasurementHandler(new FakeMeasurementRepository(), $stationClient, new FakeEventPublisher());
     $response = $handler->handle(makeCreateCommand('00000000-0000-4000-a000-000000000001', temp: 41.0));
 
     expect($response->alertStatus)->toBeTrue()
@@ -58,7 +59,7 @@ test('calculates multiple alerts simultaneously on creation', function () {
     $stationClient = new FakeStationClient();
     $stationClient->seed(makeStationSummary());
 
-    $handler  = new CreateMeasurementHandler(new FakeMeasurementRepository(), $stationClient);
+    $handler  = new CreateMeasurementHandler(new FakeMeasurementRepository(), $stationClient, new FakeEventPublisher());
     $response = $handler->handle(makeCreateCommand('00000000-0000-4000-a000-000000000001', temp: -5.0, humidity: 95.0));
 
     expect($response->alertStatus)->toBeTrue()
@@ -67,7 +68,35 @@ test('calculates multiple alerts simultaneously on creation', function () {
 });
 
 test('throws StationNotFoundException when station does not exist', function () {
-    $handler = new CreateMeasurementHandler(new FakeMeasurementRepository(), new FakeStationClient());
+    $handler = new CreateMeasurementHandler(new FakeMeasurementRepository(), new FakeStationClient(), new FakeEventPublisher());
 
     $handler->handle(makeCreateCommand('00000000-0000-4000-a000-000000000099'));
 })->throws(StationNotFoundException::class);
+
+test('publishes AlertDetected event to alert-events queue when measurement has alert', function () {
+    $stationClient = new FakeStationClient();
+    $stationClient->seed(makeStationSummary());
+    $publisher = new FakeEventPublisher();
+
+    $handler = new CreateMeasurementHandler(new FakeMeasurementRepository(), $stationClient, $publisher);
+    $handler->handle(makeCreateCommand('00000000-0000-4000-a000-000000000001', temp: 41.0));
+
+    expect($publisher->wasPublishedTo('alert-events'))->toBeTrue();
+
+    $events = $publisher->getPublishedTo('alert-events');
+    expect($events)->toHaveCount(1)
+        ->and($events[0]['payload']['event'])->toBe('AlertDetected')
+        ->and($events[0]['payload']['station_id'])->toBe('00000000-0000-4000-a000-000000000001')
+        ->and($events[0]['payload']['alert_types'])->toContain('extreme_heat');
+});
+
+test('does not publish to alert-events queue when measurement has no alert', function () {
+    $stationClient = new FakeStationClient();
+    $stationClient->seed(makeStationSummary());
+    $publisher = new FakeEventPublisher();
+
+    $handler = new CreateMeasurementHandler(new FakeMeasurementRepository(), $stationClient, $publisher);
+    $handler->handle(makeCreateCommand('00000000-0000-4000-a000-000000000001', temp: 20.0));
+
+    expect($publisher->wasPublishedTo('alert-events'))->toBeFalse();
+});
