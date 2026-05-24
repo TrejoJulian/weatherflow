@@ -15,6 +15,7 @@ use App\Application\Measurement\GetMeasurement\GetMeasurementQuery;
 use App\Application\Measurement\UpdateMeasurement\UpdateMeasurementCommand;
 use App\Application\Measurement\UpdateMeasurement\UpdateMeasurementHandler;
 use App\Domain\Measurement\Exceptions\MeasurementNotFoundException;
+use App\Domain\WeatherStation\Exceptions\StationNotFoundException;
 use App\Infrastructure\Http\Requests\CreateMeasurementRequest;
 use App\Infrastructure\Http\Requests\GetMeasurementsRequest;
 use App\Infrastructure\Http\Requests\UpdateMeasurementRequest;
@@ -52,15 +53,19 @@ final class MeasurementController
 
     public function store(CreateMeasurementRequest $request): JsonResponse
     {
-        $measurement = $this->createHandler->handle(new CreateMeasurementCommand(
-            stationId:           $request->input('station_id'),
-            temperature:         (float) $request->input('temperature'),
-            humidity:            (float) $request->input('humidity'),
-            atmosphericPressure: (float) $request->input('atmospheric_pressure'),
-            reportedAt:          $request->input('reported_at'),
-        ));
+        try {
+            $measurement = $this->createHandler->handle(new CreateMeasurementCommand(
+                stationId:           $request->input('station_id'),
+                temperature:         (float) $request->input('temperature'),
+                humidity:            (float) $request->input('humidity'),
+                atmosphericPressure: (float) $request->input('atmospheric_pressure'),
+                reportedAt:          $request->input('reported_at'),
+            ));
 
-        return response()->json($measurement, 201);
+            return response()->json($measurement, 201);
+        } catch (StationNotFoundException $e) {
+            return response()->json(['message' => $e->getMessage()], 404);
+        }
     }
 
     public function update(UpdateMeasurementRequest $request, string $id): JsonResponse
