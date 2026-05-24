@@ -50,6 +50,12 @@ final class MongoMeasurementRepository implements MeasurementRepository
             ->when($filters->tempMax()     !== null, fn($query) => $query->where('temperature', '<=', $filters->tempMax()))
             ->when($filters->alertOnly()   !== null, fn($query) => $query->where('alert_status', $filters->alertOnly()))
             ->when($filters->alertType()   !== null, fn($query) => $query->where('alert_types', 'all', [$filters->alertType()->value]))
+            ->when($filters->dateFrom()    !== null, fn($query) => $query->where('reported_at', '>=', $filters->dateFrom()))
+            ->when($filters->dateTo()      !== null, fn($query) => $query->where('reported_at', '<=', $filters->dateTo()))
+            ->when($filters->humidityMin() !== null, fn($query) => $query->where('humidity', '>=', $filters->humidityMin()))
+            ->when($filters->humidityMax() !== null, fn($query) => $query->where('humidity', '<=', $filters->humidityMax()))
+            ->when($filters->pressureMin() !== null, fn($query) => $query->where('atmospheric_pressure', '>=', $filters->pressureMin()))
+            ->when($filters->pressureMax() !== null, fn($query) => $query->where('atmospheric_pressure', '<=', $filters->pressureMax()))
             ->get()
             ->map(fn(MeasurementModel $model) => $this->toDomain($model))
             ->all();
