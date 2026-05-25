@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Infrastructure\Persistence\MongoDB\MeasurementModel;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
@@ -34,6 +35,25 @@ function createStationInCore(string $userId, string $name): string
     ])->throw();
 
     return $response->json('id');
+}
+
+function waitForStationName(string $stationId, string $expectedName, int $timeoutSeconds = 10): void
+{
+    $deadline = time() + $timeoutSeconds;
+
+    while (time() < $deadline) {
+        $model = MeasurementModel::where('station_id', $stationId)->first();
+
+        if ($model !== null && $model->station_name === $expectedName) {
+            return;
+        }
+
+        usleep(200_000);
+    }
+
+    $actual = MeasurementModel::where('station_id', $stationId)->first()?->station_name;
+
+    expect($actual)->toBe($expectedName, "Timed out after {$timeoutSeconds}s waiting for station_name on station {$stationId}");
 }
 
 function renameStationInCore(string $stationId, string $userId, string $newName): void
