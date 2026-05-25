@@ -34,5 +34,9 @@
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <env name="MONGODB_DATABASE" value="weatherflow_monitor_test"/>
         <env name="CORE_SERVICE_URL" value="http://core/api"/>
+        <env name="RABBITMQ_HOST" value="rabbitmq"/>
+        <env name="RABBITMQ_PORT" value="5672"/>
+        <env name="RABBITMQ_USER" value="weatherflow"/>
+        <env name="RABBITMQ_PASSWORD" value="secret"/>
     </php>
 </phpunit>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
+use PhpAmqpLib\Connection\AMQPStreamConnection;
 
 function coreHttp(): PendingRequest
 {
@@ -52,4 +53,63 @@ function renameStationInCore(string $stationId, string $userId, string $newName)
             'status'       => $station['status'],
         ])
         ->throw();
+}
+
+function purgeRabbitMQQueue(string $queue): void
+{
+    $connection = rabbitMQTestConnection();
+    $channel    = $connection->channel();
+
+    try {
+        $channel->queue_declare(
+            queue:       $queue,
+            passive:     false,
+            durable:     true,
+            exclusive:   false,
+            auto_delete: false,
+        );
+        $channel->queue_purge($queue);
+    } finally {
+        $channel->close();
+        $connection->close();
+    }
+}
+
+function consumeOneMessageFromQueue(string $queue): ?array
+{
+    $connection = rabbitMQTestConnection();
+    $channel    = $connection->channel();
+
+    try {
+        $channel->queue_declare(
+            queue:       $queue,
+            passive:     false,
+            durable:     true,
+            exclusive:   false,
+            auto_delete: false,
+        );
+
+        $message = $channel->basic_get($queue);
+
+        if ($message === null) {
+            return null;
+        }
+
+        $channel->basic_ack($message->getDeliveryTag());
+
+        return json_decode($message->getBody(), true, 512, JSON_THROW_ON_ERROR);
+    } finally {
+        $channel->close();
+        $connection->close();
+    }
+}
+
+function rabbitMQTestConnection(): AMQPStreamConnection
+{
+    return new AMQPStreamConnection(
+        host:     config('services.rabbitmq.host'),
+        port:     config('services.rabbitmq.port'),
+        user:     config('services.rabbitmq.user'),
+        password: config('services.rabbitmq.password'),
+    );
 }
