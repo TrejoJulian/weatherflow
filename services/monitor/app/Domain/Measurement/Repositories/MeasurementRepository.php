@@ -19,5 +19,7 @@ interface MeasurementRepository
 
     public function hasMeasurementsForStation(StationId $stationId): bool;
 
+    public function updateStationNameByStationId(StationId $stationId, string $newName): void;
+
     public function delete(MeasurementId $id): void;
 }

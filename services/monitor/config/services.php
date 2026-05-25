@@ -39,4 +39,11 @@ return [
         'url' => env('CORE_SERVICE_URL', 'http://core/api'),
     ],
 
+    'rabbitmq' => [
+        'host'     => env('RABBITMQ_HOST', 'rabbitmq'),
+        'port'     => env('RABBITMQ_PORT', 5672),
+        'user'     => env('RABBITMQ_USER', 'weatherflow'),
+        'password' => env('RABBITMQ_PASSWORD', 'secret'),
+    ],
+
 ];

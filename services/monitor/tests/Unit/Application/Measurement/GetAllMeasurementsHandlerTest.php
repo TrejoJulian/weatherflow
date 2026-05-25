@@ -17,6 +17,7 @@ function makeMeasurementForHandler(
     float  $temp        = 20.0,
     float  $humidity    = 50.0,
     float  $pressure    = 1013.0,
+    string $reportedAt  = '2026-04-01T10:00:00+00:00',
 ): Measurement {
     return Measurement::create(
         id:                  MeasurementId::generate(),
@@ -25,7 +26,7 @@ function makeMeasurementForHandler(
         temperature:         new Temperature($temp),
         humidity:            new Humidity($humidity),
         atmosphericPressure: new AtmosphericPressure($pressure),
-        reportedAt:          new \DateTimeImmutable(),
+        reportedAt:          new \DateTimeImmutable($reportedAt),
     );
 }
 
@@ -85,6 +86,96 @@ test('station name filter is case insensitive', function () {
     $result = (new GetAllMeasurementsHandler($repo))->handle(new GetAllMeasurementsQuery(stationName: 'central'));
 
     expect($result)->toHaveCount(1);
+});
+
+// -------------------------------------------------------------------------
+// Date filters
+// -------------------------------------------------------------------------
+
+test('filters measurements by dateFrom', function () {
+    $repo = new FakeMeasurementRepository();
+    $repo->seed(
+        makeMeasurementForHandler(reportedAt: '2026-04-01T10:00:00+00:00'),
+        makeMeasurementForHandler(reportedAt: '2026-04-10T10:00:00+00:00'),
+    );
+
+    $result = (new GetAllMeasurementsHandler($repo))->handle(new GetAllMeasurementsQuery(dateFrom: '2026-04-05T00:00:00+00:00'));
+
+    expect($result)->toHaveCount(1)
+        ->and($result[0]->reportedAt)->toBe('2026-04-10T10:00:00+00:00');
+});
+
+test('filters measurements by dateTo', function () {
+    $repo = new FakeMeasurementRepository();
+    $repo->seed(
+        makeMeasurementForHandler(reportedAt: '2026-04-01T10:00:00+00:00'),
+        makeMeasurementForHandler(reportedAt: '2026-04-10T10:00:00+00:00'),
+    );
+
+    $result = (new GetAllMeasurementsHandler($repo))->handle(new GetAllMeasurementsQuery(dateTo: '2026-04-05T00:00:00+00:00'));
+
+    expect($result)->toHaveCount(1)
+        ->and($result[0]->reportedAt)->toBe('2026-04-01T10:00:00+00:00');
+});
+
+// -------------------------------------------------------------------------
+// Humidity filters
+// -------------------------------------------------------------------------
+
+test('filters measurements by humidityMin', function () {
+    $repo = new FakeMeasurementRepository();
+    $repo->seed(
+        makeMeasurementForHandler(humidity: 40.0),
+        makeMeasurementForHandler(humidity: 70.0),
+    );
+
+    $result = (new GetAllMeasurementsHandler($repo))->handle(new GetAllMeasurementsQuery(humidityMin: 50.0));
+
+    expect($result)->toHaveCount(1)
+        ->and($result[0]->humidity)->toBe(70.0);
+});
+
+test('filters measurements by humidityMax', function () {
+    $repo = new FakeMeasurementRepository();
+    $repo->seed(
+        makeMeasurementForHandler(humidity: 40.0),
+        makeMeasurementForHandler(humidity: 70.0),
+    );
+
+    $result = (new GetAllMeasurementsHandler($repo))->handle(new GetAllMeasurementsQuery(humidityMax: 50.0));
+
+    expect($result)->toHaveCount(1)
+        ->and($result[0]->humidity)->toBe(40.0);
+});
+
+// -------------------------------------------------------------------------
+// Pressure filters
+// -------------------------------------------------------------------------
+
+test('filters measurements by pressureMin', function () {
+    $repo = new FakeMeasurementRepository();
+    $repo->seed(
+        makeMeasurementForHandler(pressure: 1000.0),
+        makeMeasurementForHandler(pressure: 1020.0),
+    );
+
+    $result = (new GetAllMeasurementsHandler($repo))->handle(new GetAllMeasurementsQuery(pressureMin: 1010.0));
+
+    expect($result)->toHaveCount(1)
+        ->and($result[0]->atmosphericPressure)->toBe(1020.0);
+});
+
+test('filters measurements by pressureMax', function () {
+    $repo = new FakeMeasurementRepository();
+    $repo->seed(
+        makeMeasurementForHandler(pressure: 1000.0),
+        makeMeasurementForHandler(pressure: 1020.0),
+    );
+
+    $result = (new GetAllMeasurementsHandler($repo))->handle(new GetAllMeasurementsQuery(pressureMax: 1010.0));
+
+    expect($result)->toHaveCount(1)
+        ->and($result[0]->atmosphericPressure)->toBe(1000.0);
 });
 
 // -------------------------------------------------------------------------

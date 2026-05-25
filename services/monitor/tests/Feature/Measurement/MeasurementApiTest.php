@@ -220,6 +220,12 @@ test('returns 422 when alert_type is invalid', function () {
         ->assertJsonValidationErrors(['alert_type']);
 });
 
+test('returns 422 when date_to is before date_from', function () {
+    $this->getJson('/api/measurements?date_from=2026-04-10&date_to=2026-04-01')
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['date_to']);
+});
+
 test('combines multiple filters correctly', function () {
     $this->postJson('/api/measurements', measurementPayload(['temperature' => 10.0]));
     $this->postJson('/api/measurements', measurementPayload(['temperature' => 41.0]));

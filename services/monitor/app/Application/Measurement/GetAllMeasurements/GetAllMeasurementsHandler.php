@@ -20,11 +20,17 @@ final class GetAllMeasurementsHandler
     public function handle(GetAllMeasurementsQuery $query): array
     {
         $filters = new MeasurementFilters(
-            stationName: $query->stationName,
-            tempMin:     $query->tempMin,
-            tempMax:     $query->tempMax,
-            alertOnly:   $query->alertOnly,
-            alertType:   $query->alertType !== null ? AlertType::from($query->alertType) : null,
+            stationName:  $query->stationName,
+            tempMin:      $query->tempMin,
+            tempMax:      $query->tempMax,
+            alertOnly:    $query->alertOnly,
+            alertType:    $query->alertType !== null ? AlertType::from($query->alertType) : null,
+            dateFrom:     $query->dateFrom,
+            dateTo:       $query->dateTo,
+            humidityMin:  $query->humidityMin,
+            humidityMax:  $query->humidityMax,
+            pressureMin:  $query->pressureMin,
+            pressureMax:  $query->pressureMax,
         );
 
         return array_map(
