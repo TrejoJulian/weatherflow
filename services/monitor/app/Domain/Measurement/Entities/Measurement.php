@@ -17,7 +17,7 @@ final class Measurement
     private function __construct(
         private readonly MeasurementId      $id,
         private readonly StationId          $stationId,
-        private readonly string             $stationName,
+        private string                      $stationName,
         private Temperature                 $temperature,
         private Humidity                    $humidity,
         private AtmosphericPressure         $atmosphericPressure,
@@ -80,6 +80,11 @@ final class Measurement
     public function stationName(): string
     {
         return $this->stationName;
+    }
+
+    public function renameStation(string $newName): void
+    {
+        $this->stationName = $newName;
     }
 
     public function temperature(): Temperature

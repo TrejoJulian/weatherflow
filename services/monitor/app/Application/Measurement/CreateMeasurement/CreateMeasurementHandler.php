@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Application\Measurement\CreateMeasurement;
 
+use App\Application\Contracts\EventPublisher;
 use App\Application\Measurement\MeasurementResponse;
 use App\Domain\Measurement\Entities\Measurement;
+use App\Domain\Measurement\Enums\AlertType;
 use App\Domain\Measurement\Repositories\MeasurementRepository;
 use App\Domain\Measurement\ValueObjects\AtmosphericPressure;
 use App\Domain\Measurement\ValueObjects\Humidity;
@@ -15,12 +17,14 @@ use App\Domain\WeatherStation\Clients\StationClient;
 use App\Domain\WeatherStation\Exceptions\StationNotFoundException;
 use App\Domain\WeatherStation\ValueObjects\StationId;
 use DateTimeImmutable;
+use DateTimeInterface;
 
 final class CreateMeasurementHandler
 {
     public function __construct(
         private readonly MeasurementRepository $measurementRepository,
-        private readonly StationClient $stationClient,
+        private readonly StationClient         $stationClient,
+        private readonly EventPublisher        $eventPublisher,
     ) {}
 
     public function handle(CreateMeasurementCommand $command): MeasurementResponse
@@ -44,6 +48,17 @@ final class CreateMeasurementHandler
         );
 
         $this->measurementRepository->save($measurement);
+
+        if ($measurement->alertStatus()) {
+            $this->eventPublisher->publish('alert-events', [
+                'event'          => 'AlertDetected',
+                'measurement_id' => $measurement->id()->value(),
+                'station_id'     => $measurement->stationId()->value(),
+                'station_name'   => $stationSummary->stationName,
+                'alert_types'    => array_map(fn(AlertType $type) => $type->value, $measurement->alertTypes()),
+                'reported_at'    => $measurement->reportedAt()->format(DateTimeInterface::ATOM),
+            ]);
+        }
 
         return MeasurementResponse::fromEntity($measurement);
     }
