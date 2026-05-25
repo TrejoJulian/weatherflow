@@ -42,6 +42,15 @@ final class FakeMeasurementRepository implements MeasurementRepository
         ));
     }
 
+    public function updateStationNameByStationId(StationId $stationId, string $newName): void
+    {
+        foreach ($this->measurements as $measurement) {
+            if ($measurement->stationId()->value() === $stationId->value()) {
+                $measurement->renameStation($newName);
+            }
+        }
+    }
+
     public function delete(MeasurementId $id): void
     {
         unset($this->measurements[$id->value()]);
