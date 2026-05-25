@@ -66,6 +66,12 @@ final class MongoMeasurementRepository implements MeasurementRepository
         return MeasurementModel::where('station_id', $stationId->value())->exists();
     }
 
+    public function updateStationNameByStationId(StationId $stationId, string $newName): void
+    {
+        MeasurementModel::where('station_id', $stationId->value())
+            ->update(['station_name' => $newName]);
+    }
+
     public function delete(MeasurementId $id): void
     {
         MeasurementModel::destroy($id->value());

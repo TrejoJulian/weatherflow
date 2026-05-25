@@ -83,6 +83,26 @@ services:
     networks:
       - weatherflow
 
+  monitor-worker:
+    container_name: weatherflow-monitor-worker
+    build:
+      context: './services/monitor/vendor/laravel/sail/runtimes/8.4'
+      dockerfile: Dockerfile
+      args:
+        WWWGROUP: '${WWWGROUP:-1000}'
+    image: 'sail-8.4/monitor'
+    command: php artisan monitor:consume-station-events
+    environment:
+      WWWUSER: '${WWWUSER:-1000}'
+      LARAVEL_SAIL: 1
+    volumes:
+      - './services/monitor:/var/www/html'
+    networks:
+      - weatherflow
+    depends_on:
+      - rabbitmq
+      - mongodb_monitor
+
   rabbitmq:
     container_name: weatherflow-rabbitmq
     image: 'rabbitmq:3-management-alpine'
