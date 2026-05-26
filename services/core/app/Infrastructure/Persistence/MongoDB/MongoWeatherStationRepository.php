@@ -9,24 +9,32 @@ use App\Domain\WeatherStation\Entities\WeatherStation;
 use App\Domain\WeatherStation\Enums\StationStatus;
 use App\Domain\WeatherStation\Repositories\WeatherStationRepository;
 use App\Domain\WeatherStation\ValueObjects\Location;
+use App\Domain\WeatherStation\ValueObjects\StationFilters;
 use App\Domain\WeatherStation\ValueObjects\StationId;
+use DateTimeInterface;
 
 final class MongoWeatherStationRepository implements WeatherStationRepository
 {
     public function save(WeatherStation $station): void
     {
+        $data = [
+            'owner_id'     => $station->ownerId()->value(),
+            'name'         => $station->stationName(),
+            'location'     => [
+                'latitude'  => $station->location()->latitude(),
+                'longitude' => $station->location()->longitude(),
+            ],
+            'sensor_model' => $station->sensorModel(),
+            'status'       => $station->status()->value,
+        ];
+
+        if (! WeatherStationModel::where('_id', $station->id()->value())->exists()) {
+            $data['created_at'] = $station->createdAt()->format(DateTimeInterface::ATOM);
+        }
+
         WeatherStationModel::updateOrCreate(
             ['_id' => $station->id()->value()],
-            [
-                'owner_id'     => $station->ownerId()->value(),
-                'name'         => $station->stationName(),
-                'location'     => [
-                    'latitude'  => $station->location()->latitude(),
-                    'longitude' => $station->location()->longitude(),
-                ],
-                'sensor_model' => $station->sensorModel(),
-                'status'       => $station->status()->value,
-            ]
+            $data,
         );
     }
 
@@ -52,9 +60,13 @@ final class MongoWeatherStationRepository implements WeatherStationRepository
         return WeatherStationModel::where('owner_id', $ownerId->value())->exists();
     }
 
-    public function findAll(): array
+    public function findAll(StationFilters $filters = new StationFilters()): array
     {
-        return WeatherStationModel::all()
+        return WeatherStationModel::query()
+            ->when($filters->name(), fn ($query) => $query->where('name', 'like', "%{$filters->name()}%"))
+            ->when($filters->createdFrom(), fn ($query) => $query->where('created_at', '>=', $filters->createdFrom()))
+            ->when($filters->createdTo(), fn ($query) => $query->where('created_at', '<=', $filters->createdTo()))
+            ->get()
             ->map(fn (WeatherStationModel $model) => $this->toDomain($model))
             ->all();
     }
@@ -73,6 +85,7 @@ final class MongoWeatherStationRepository implements WeatherStationRepository
             new Location($model->location['latitude'], $model->location['longitude']),
             $model->sensor_model,
             StationStatus::from($model->status),
+            createdAt: new \DateTimeImmutable($model->created_at ?? 'now'),
         );
     }
 }

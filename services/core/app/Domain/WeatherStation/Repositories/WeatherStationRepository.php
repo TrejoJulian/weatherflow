@@ -6,6 +6,7 @@ namespace App\Domain\WeatherStation\Repositories;
 
 use App\Domain\User\ValueObjects\UserId;
 use App\Domain\WeatherStation\Entities\WeatherStation;
+use App\Domain\WeatherStation\ValueObjects\StationFilters;
 use App\Domain\WeatherStation\ValueObjects\StationId;
 
 interface WeatherStationRepository
@@ -19,7 +20,7 @@ interface WeatherStationRepository
 
     public function hasStationsOwnedBy(UserId $ownerId): bool;
 
-    public function findAll(): array;
+    public function findAll(StationFilters $filters = new StationFilters()): array;
 
     public function delete(StationId $id): void;
 }

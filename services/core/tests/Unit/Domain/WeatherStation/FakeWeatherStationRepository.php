@@ -7,7 +7,9 @@ namespace Tests\Unit\Domain\WeatherStation;
 use App\Domain\User\ValueObjects\UserId;
 use App\Domain\WeatherStation\Entities\WeatherStation;
 use App\Domain\WeatherStation\Repositories\WeatherStationRepository;
+use App\Domain\WeatherStation\ValueObjects\StationFilters;
 use App\Domain\WeatherStation\ValueObjects\StationId;
+use DateTimeInterface;
 
 final class FakeWeatherStationRepository implements WeatherStationRepository
 {
@@ -39,9 +41,12 @@ final class FakeWeatherStationRepository implements WeatherStationRepository
         ));
     }
 
-    public function findAll(): array
+    public function findAll(StationFilters $filters = new StationFilters()): array
     {
-        return array_values($this->stations);
+        return array_values(array_filter(
+            $this->stations,
+            fn (WeatherStation $station) => $this->matchesFilters($station, $filters),
+        ));
     }
 
     public function delete(StationId $id): void
@@ -54,5 +59,17 @@ final class FakeWeatherStationRepository implements WeatherStationRepository
         foreach ($stations as $station) {
             $this->stations[$station->id()->value()] = $station;
         }
+    }
+
+    private function matchesFilters(WeatherStation $station, StationFilters $filters): bool
+    {
+        $createdAt = $station->createdAt()->format(DateTimeInterface::ATOM);
+
+        return ($filters->name() === null || str_contains(
+            strtolower($station->stationName()),
+            strtolower($filters->name()),
+        ))
+            && ($filters->createdFrom() === null || $createdAt >= $filters->createdFrom())
+            && ($filters->createdTo()   === null || $createdAt <= $filters->createdTo());
     }
 }

@@ -17,6 +17,7 @@ use App\Application\WeatherStation\UpdateStation\UpdateStationHandler;
 use App\Domain\User\Exceptions\UserNotFoundException;
 use App\Domain\WeatherStation\Exceptions\StationNotFoundException;
 use App\Infrastructure\Http\Requests\CreateStationRequest;
+use App\Infrastructure\Http\Requests\GetStationsRequest;
 use App\Infrastructure\Http\Requests\UpdateStationRequest;
 use Illuminate\Http\JsonResponse;
 
@@ -30,9 +31,13 @@ final class WeatherStationController
         private readonly DeleteStationHandler    $deleteHandler,
     ) {}
 
-    public function index(): JsonResponse
+    public function index(GetStationsRequest $request): JsonResponse
     {
-        return response()->json($this->getAllHandler->handle(new GetAllStationsQuery()));
+        return response()->json($this->getAllHandler->handle(new GetAllStationsQuery(
+            name:        $request->string('name')->value() ?: null,
+            createdFrom: $request->input('created_from'),
+            createdTo:   $request->input('created_to'),
+        )));
     }
 
     public function show(string $id): JsonResponse
