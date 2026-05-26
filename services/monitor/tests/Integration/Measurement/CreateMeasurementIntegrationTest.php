@@ -5,7 +5,7 @@ declare(strict_types=1);
 use App\Infrastructure\Persistence\MongoDB\MeasurementModel;
 
 test('registers a measurement and publishes AlertDetected to RabbitMQ', function () {
-    purgeRabbitMQQueue('alert-events');
+    purgeRabbitMQQueue(config('services.queues.alerts'));
 
     $userId    = createUserInCore();
     $stationId = createStationInCore($userId, 'Estación Central');
@@ -28,7 +28,7 @@ test('registers a measurement and publishes AlertDetected to RabbitMQ', function
         ->and($model->station_name)->toBe('Estación Central')
         ->and($model->alert_status)->toBeTrue();
 
-    $message = consumeOneMessageFromQueue('alert-events');
+    $message = consumeOneMessageFromQueue(config('services.queues.alerts'));
     expect($message)->not->toBeNull()
         ->and($message['event'])->toBe('AlertDetected')
         ->and($message['station_id'])->toBe($stationId)

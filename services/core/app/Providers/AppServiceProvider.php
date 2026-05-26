@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Application\Contracts\EventPublisher;
+use App\Application\WeatherStation\UpdateStation\UpdateStationHandler;
 use App\Domain\User\Repositories\UserRepository;
 use App\Domain\WeatherStation\Repositories\WeatherStationRepository;
 use App\Infrastructure\Messaging\RabbitMQEventPublisher;
@@ -19,6 +20,15 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(UserRepository::class, MongoUserRepository::class);
         $this->app->bind(WeatherStationRepository::class, MongoWeatherStationRepository::class);
         $this->app->bind(EventPublisher::class, RabbitMQEventPublisher::class);
+
+        $this->app->bind(UpdateStationHandler::class, function ($app) {
+            return new UpdateStationHandler(
+                $app->make(WeatherStationRepository::class),
+                $app->make(UserRepository::class),
+                $app->make(EventPublisher::class),
+                config('services.queues.stations'),
+            );
+        });
     }
 
     public function boot(): void {}

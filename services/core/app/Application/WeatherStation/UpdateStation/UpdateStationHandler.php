@@ -21,6 +21,7 @@ final class UpdateStationHandler
         private readonly WeatherStationRepository $stationRepository,
         private readonly UserRepository           $userRepository,
         private readonly EventPublisher           $eventPublisher,
+        private readonly string                   $stationsQueue,
     ) {}
 
     public function handle(UpdateStationCommand $command): StationResponse
@@ -48,7 +49,7 @@ final class UpdateStationHandler
         );
 
         if ($oldName !== $command->stationName) {
-            $this->eventPublisher->publish('station-events', [
+            $this->eventPublisher->publish($this->stationsQueue, [
                 'event'      => 'StationRenamed',
                 'station_id' => $station->id()->value(),
                 'new_name'   => $command->stationName,

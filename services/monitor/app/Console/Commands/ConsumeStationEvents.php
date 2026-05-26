@@ -27,12 +27,13 @@ final class ConsumeStationEvents extends Command
         );
 
         $channel = $connection->channel();
-        $channel->queue_declare('station-events', false, true, false, false);
+        $stationsQueue = config('services.queues.stations');
+        $channel->queue_declare($stationsQueue, false, true, false, false);
 
-        $this->info('[monitor] Listening on station-events...');
+        $this->info("[monitor] Listening on {$stationsQueue}...");
 
         $channel->basic_consume(
-            queue:        'station-events',
+            queue:        $stationsQueue,
             consumer_tag: '',
             no_local:     false,
             no_ack:       false,

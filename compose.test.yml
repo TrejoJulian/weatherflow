@@ -1,0 +1,16 @@
+services:
+
+  core:
+    volumes:
+      - './services/core:/var/www/html'
+      - './services/core/.env.test:/var/www/html/.env'
+
+  monitor:
+    environment:
+      QUEUE_ALERTS: alert-events-test
+      QUEUE_STATIONS: station-events-test
+
+  monitor-worker:
+    environment:
+      MONGODB_DATABASE: weatherflow_monitor_test
+      QUEUE_STATIONS: station-events-test
