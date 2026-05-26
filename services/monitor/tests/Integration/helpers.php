@@ -37,6 +37,37 @@ function createStationInCore(string $userId, string $name): string
     return $response->json('id');
 }
 
+/** @return array{userId: string, stationId: string} */
+function createTestStation(string $name = 'Estación de Integración'): array
+{
+    $userId = createUserInCore();
+
+    return [
+        'userId'    => $userId,
+        'stationId' => createStationInCore($userId, $name),
+    ];
+}
+
+function measurementPayload(array $overrides = [], string $stationId = '00000000-0000-4000-a000-000000000001',): array
+{
+    return array_merge([
+        'station_id'           => $stationId,
+        'temperature'          => 25.0,
+        'humidity'             => 60.0,
+        'atmospheric_pressure' => 1013.0,
+        'reported_at'          => '2026-05-01T12:00:00Z',
+    ], $overrides);
+}
+
+function createMeasurementViaApi(object $test, string $stationId, array $overrides = []): array
+{
+    $response = $test->postJson('/api/measurements', measurementPayload($overrides, $stationId));
+
+    $response->assertStatus(201);
+
+    return $response->json();
+}
+
 function waitForStationName(string $stationId, string $expectedName, int $timeoutSeconds = 10): void
 {
     $deadline = time() + $timeoutSeconds;

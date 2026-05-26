@@ -36,6 +36,41 @@ test('registers a measurement and publishes AlertDetected to RabbitMQ', function
         ->and($message['alert_types'])->toContain('extreme_heat');
 });
 
+test('does not publish AlertDetected when measurement has no alert', function () {
+    purgeRabbitMQQueue(config('services.queues.alerts'));
+
+    ['stationId' => $stationId] = createTestStation('Estación Sin Alerta');
+
+    $this->postJson('/api/measurements', measurementPayload($stationId))
+        ->assertStatus(201)
+        ->assertJsonFragment([
+            'alertStatus' => false,
+            'alertTypes'  => ['None'],
+        ]);
+
+    expect(consumeOneMessageFromQueue(config('services.queues.alerts')))->toBeNull();
+});
+
+test('publishes frost alert to RabbitMQ when temperature is below zero', function () {
+    purgeRabbitMQQueue(config('services.queues.alerts'));
+
+    ['stationId' => $stationId] = createTestStation('Estación Helada');
+
+    $this->postJson('/api/measurements', measurementPayload($stationId, [
+        'temperature' => -2.0,
+    ]))->assertStatus(201)
+        ->assertJsonFragment([
+            'alertStatus' => true,
+            'alertTypes'  => ['Frost'],
+        ]);
+
+    $message = consumeOneMessageFromQueue(config('services.queues.alerts'));
+    expect($message)->not->toBeNull()
+        ->and($message['event'])->toBe('AlertDetected')
+        ->and($message['station_id'])->toBe($stationId)
+        ->and($message['alert_types'])->toContain('frost');
+});
+
 test('returns 404 when station does not exist in Core', function () {
     $unknownStationId = '00000000-0000-4000-a000-000000000099';
 
