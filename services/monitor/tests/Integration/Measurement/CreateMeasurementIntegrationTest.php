@@ -41,7 +41,7 @@ test('does not publish AlertDetected when measurement has no alert', function ()
 
     ['stationId' => $stationId] = createTestStation('Estación Sin Alerta');
 
-    $this->postJson('/api/measurements', measurementPayload($stationId))
+    $this->postJson('/api/measurements', measurementPayload([], $stationId))
         ->assertStatus(201)
         ->assertJsonFragment([
             'alertStatus' => false,
@@ -56,9 +56,9 @@ test('publishes frost alert to RabbitMQ when temperature is below zero', functio
 
     ['stationId' => $stationId] = createTestStation('Estación Helada');
 
-    $this->postJson('/api/measurements', measurementPayload($stationId, [
+    $this->postJson('/api/measurements', measurementPayload([
         'temperature' => -2.0,
-    ]))->assertStatus(201)
+    ], $stationId))->assertStatus(201)
         ->assertJsonFragment([
             'alertStatus' => true,
             'alertTypes'  => ['Frost'],
