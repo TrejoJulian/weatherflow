@@ -36,7 +36,7 @@ test('creates a station and returns 201', function () {
     ]);
 
     $response->assertStatus(201)
-        ->assertJsonStructure(['id', 'ownerId', 'stationName', 'latitude', 'longitude', 'sensorModel', 'status'])
+        ->assertJsonStructure(['id', 'ownerId', 'stationName', 'latitude', 'longitude', 'sensorModel', 'status', 'createdAt'])
         ->assertJsonFragment([
             'stationName' => 'Estación Central',
             'status'      => 'active',
@@ -89,6 +89,7 @@ test('returns a station by id', function () {
 
     $this->getJson("/api/stations/{$created['id']}")
         ->assertStatus(200)
+        ->assertJsonStructure(['id', 'ownerId', 'stationName', 'latitude', 'longitude', 'sensorModel', 'status', 'createdAt'])
         ->assertJsonFragment(['stationName' => 'Estación Central']);
 });
 
@@ -113,7 +114,8 @@ test('returns all stations', function () {
 
     $this->getJson('/api/stations')
         ->assertStatus(200)
-        ->assertJsonCount(2);
+        ->assertJsonCount(2)
+        ->assertJsonStructure([['id', 'ownerId', 'stationName', 'latitude', 'longitude', 'sensorModel', 'status', 'createdAt']]);
 });
 
 // -------------------------------------------------------------------------

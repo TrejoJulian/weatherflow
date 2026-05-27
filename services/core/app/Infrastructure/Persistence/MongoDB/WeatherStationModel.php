@@ -16,6 +16,7 @@ final class WeatherStationModel extends BaseMongoModel
         'location',
         'sensor_model',
         'status',
+        'created_at',
     ];
 
     protected $casts = [
