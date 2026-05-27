@@ -12,23 +12,25 @@ use App\Domain\WeatherStation\ValueObjects\StationId;
 final class WeatherStation
 {
     private function __construct(
-        private readonly StationId $id,
-        private UserId             $ownerId,
-        private string             $stationName,
-        private Location           $location,
-        private string             $sensorModel,
-        private StationStatus      $status,
+        private readonly StationId           $id,
+        private UserId                       $ownerId,
+        private string                       $stationName,
+        private Location                     $location,
+        private string                       $sensorModel,
+        private StationStatus                $status,
+        private readonly \DateTimeImmutable  $createdAt,
     ) {}
 
     public static function create(
-        StationId     $id,
-        UserId        $ownerId,
-        string        $stationName,
-        Location      $location,
-        string        $sensorModel,
-        StationStatus $status = StationStatus::Active,
+        StationId          $id,
+        UserId             $ownerId,
+        string             $stationName,
+        Location           $location,
+        string             $sensorModel,
+        StationStatus      $status = StationStatus::Active,
+        \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
     ): self {
-        return new self($id, $ownerId, $stationName, $location, $sensorModel, $status);
+        return new self($id, $ownerId, $stationName, $location, $sensorModel, $status, $createdAt);
     }
 
     public function update(
@@ -73,5 +75,10 @@ final class WeatherStation
     public function status(): StationStatus
     {
         return $this->status;
+    }
+
+    public function createdAt(): \DateTimeImmutable
+    {
+        return $this->createdAt;
     }
 }

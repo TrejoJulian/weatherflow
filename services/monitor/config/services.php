@@ -46,4 +46,9 @@ return [
         'password' => env('RABBITMQ_PASSWORD', 'secret'),
     ],
 
+    'queues' => [
+        'alerts'   => env('QUEUE_ALERTS', 'alert-events'),
+        'stations' => env('QUEUE_STATIONS', 'station-events'),
+    ],
+
 ];

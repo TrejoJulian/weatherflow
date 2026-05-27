@@ -38,7 +38,7 @@ test('updates a station and returns the updated response', function () {
     $stationRepo = new FakeWeatherStationRepository();
     $stationRepo->seed($station);
 
-    $response = (new UpdateStationHandler($stationRepo, $userRepo, new FakeEventPublisher()))
+    $response = (new UpdateStationHandler($stationRepo, $userRepo, new FakeEventPublisher(), 'station-events'))
         ->handle(makeUpdateStationCommand($station->id()->value(), $user->id()->value()));
 
     expect($response->stationName)->toBe('Estación Actualizada')
@@ -51,7 +51,7 @@ test('throws when station does not exist', function () {
     $userRepo = new FakeUserRepository();
     $userRepo->seed($user);
 
-    (new UpdateStationHandler(new FakeWeatherStationRepository(), $userRepo, new FakeEventPublisher()))
+    (new UpdateStationHandler(new FakeWeatherStationRepository(), $userRepo, new FakeEventPublisher(), 'station-events'))
         ->handle(makeUpdateStationCommand('00000000-0000-4000-a000-000000000000', $user->id()->value()));
 })->throws(StationNotFoundException::class);
 
@@ -62,7 +62,7 @@ test('throws when new owner does not exist', function () {
     $stationRepo = new FakeWeatherStationRepository();
     $stationRepo->seed($station);
 
-    (new UpdateStationHandler($stationRepo, new FakeUserRepository(), new FakeEventPublisher()))
+    (new UpdateStationHandler($stationRepo, new FakeUserRepository(), new FakeEventPublisher(), 'station-events'))
         ->handle(makeUpdateStationCommand($station->id()->value(), '00000000-0000-4000-a000-000000000000'));
 })->throws(UserNotFoundException::class);
 
@@ -76,7 +76,7 @@ test('publishes StationRenamed event to station-events queue when name changes',
     $stationRepo->seed($station);
     $publisher   = new FakeEventPublisher();
 
-    (new UpdateStationHandler($stationRepo, $userRepo, $publisher))->handle(new UpdateStationCommand(
+    (new UpdateStationHandler($stationRepo, $userRepo, $publisher, 'station-events'))->handle(new UpdateStationCommand(
         id:          $station->id()->value(),
         ownerId:     $user->id()->value(),
         stationName: 'Nombre Nuevo',
@@ -105,7 +105,7 @@ test('does not publish to station-events queue when name does not change', funct
     $stationRepo->seed($station);
     $publisher   = new FakeEventPublisher();
 
-    (new UpdateStationHandler($stationRepo, $userRepo, $publisher))->handle(new UpdateStationCommand(
+    (new UpdateStationHandler($stationRepo, $userRepo, $publisher, 'station-events'))->handle(new UpdateStationCommand(
         id:          $station->id()->value(),
         ownerId:     $user->id()->value(),
         stationName: 'Nombre Original',

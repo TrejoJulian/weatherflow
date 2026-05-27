@@ -5,7 +5,7 @@ declare(strict_types=1);
 use App\Infrastructure\Persistence\MongoDB\MeasurementModel;
 
 test('registers a measurement and publishes AlertDetected to RabbitMQ', function () {
-    purgeRabbitMQQueue('alert-events');
+    purgeRabbitMQQueue(config('services.queues.alerts'));
 
     $userId    = createUserInCore();
     $stationId = createStationInCore($userId, 'Estación Central');
@@ -28,12 +28,47 @@ test('registers a measurement and publishes AlertDetected to RabbitMQ', function
         ->and($model->station_name)->toBe('Estación Central')
         ->and($model->alert_status)->toBeTrue();
 
-    $message = consumeOneMessageFromQueue('alert-events');
+    $message = consumeOneMessageFromQueue(config('services.queues.alerts'));
     expect($message)->not->toBeNull()
         ->and($message['event'])->toBe('AlertDetected')
         ->and($message['station_id'])->toBe($stationId)
         ->and($message['station_name'])->toBe('Estación Central')
         ->and($message['alert_types'])->toContain('extreme_heat');
+});
+
+test('does not publish AlertDetected when measurement has no alert', function () {
+    purgeRabbitMQQueue(config('services.queues.alerts'));
+
+    ['stationId' => $stationId] = createTestStation('Estación Sin Alerta');
+
+    $this->postJson('/api/measurements', measurementPayload([], $stationId))
+        ->assertStatus(201)
+        ->assertJsonFragment([
+            'alertStatus' => false,
+            'alertTypes'  => ['None'],
+        ]);
+
+    expect(consumeOneMessageFromQueue(config('services.queues.alerts')))->toBeNull();
+});
+
+test('publishes frost alert to RabbitMQ when temperature is below zero', function () {
+    purgeRabbitMQQueue(config('services.queues.alerts'));
+
+    ['stationId' => $stationId] = createTestStation('Estación Helada');
+
+    $this->postJson('/api/measurements', measurementPayload([
+        'temperature' => -2.0,
+    ], $stationId))->assertStatus(201)
+        ->assertJsonFragment([
+            'alertStatus' => true,
+            'alertTypes'  => ['Frost'],
+        ]);
+
+    $message = consumeOneMessageFromQueue(config('services.queues.alerts'));
+    expect($message)->not->toBeNull()
+        ->and($message['event'])->toBe('AlertDetected')
+        ->and($message['station_id'])->toBe($stationId)
+        ->and($message['alert_types'])->toContain('frost');
 });
 
 test('returns 404 when station does not exist in Core', function () {

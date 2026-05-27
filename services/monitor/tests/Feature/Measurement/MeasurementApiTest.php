@@ -28,17 +28,6 @@ beforeEach(function () {
     fakeCoreStation('00000000-0000-4000-a000-000000000001');
 });
 
-function measurementPayload(array $overrides = []): array
-{
-    return array_merge([
-        'station_id'           => '00000000-0000-4000-a000-000000000001',
-        'temperature'          => 25.0,
-        'humidity'             => 60.0,
-        'atmospheric_pressure' => 1013.0,
-        'reported_at'          => '2026-04-06T14:30:00Z',
-    ], $overrides);
-}
-
 // -------------------------------------------------------------------------
 // POST /api/measurements
 // -------------------------------------------------------------------------

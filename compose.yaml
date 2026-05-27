@@ -92,6 +92,7 @@ services:
         WWWGROUP: '${WWWGROUP:-1000}'
     image: 'sail-8.4/monitor'
     command: php artisan monitor:consume-station-events
+    restart: unless-stopped
     environment:
       WWWUSER: '${WWWUSER:-1000}'
       LARAVEL_SAIL: 1

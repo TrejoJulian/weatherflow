@@ -35,6 +35,57 @@ test('defaults status to active', function () {
     expect($station->status())->toBe(StationStatus::Active);
 });
 
+test('defaults createdAt to approximately now', function () {
+    $before = new \DateTimeImmutable();
+    $station = WeatherStation::create(
+        StationId::generate(),
+        UserId::fromString('00000000-0000-4000-a000-000000000001'),
+        'Estación Central',
+        new Location(-34.6037, -58.3816),
+        'Davis Vantage Pro2',
+    );
+    $after = new \DateTimeImmutable();
+
+    expect($station->createdAt()->getTimestamp())->toBeGreaterThanOrEqual($before->getTimestamp())
+        ->and($station->createdAt()->getTimestamp())->toBeLessThanOrEqual($after->getTimestamp());
+});
+
+test('preserves explicit createdAt value', function () {
+    $createdAt = new \DateTimeImmutable('2026-03-15T12:00:00+00:00');
+    $station = WeatherStation::create(
+        StationId::generate(),
+        UserId::fromString('00000000-0000-4000-a000-000000000001'),
+        'Estación Central',
+        new Location(-34.6037, -58.3816),
+        'Davis Vantage Pro2',
+        createdAt: $createdAt,
+    );
+
+    expect($station->createdAt())->toEqual($createdAt);
+});
+
+test('update does not change createdAt', function () {
+    $createdAt = new \DateTimeImmutable('2026-01-01T00:00:00+00:00');
+    $station = WeatherStation::create(
+        StationId::generate(),
+        UserId::fromString('00000000-0000-4000-a000-000000000001'),
+        'Estación Central',
+        new Location(-34.6037, -58.3816),
+        'Davis Vantage Pro2',
+        createdAt: $createdAt,
+    );
+
+    $station->update(
+        UserId::fromString('00000000-0000-4000-a000-000000000002'),
+        'Estación Norte',
+        new Location(0.0, 0.0),
+        'Sensor X',
+        StationStatus::Inactive,
+    );
+
+    expect($station->createdAt())->toEqual($createdAt);
+});
+
 test('updates station data', function () {
     $id      = StationId::generate();
     $station = WeatherStation::create(

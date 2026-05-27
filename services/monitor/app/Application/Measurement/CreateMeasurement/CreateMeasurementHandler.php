@@ -25,6 +25,7 @@ final class CreateMeasurementHandler
         private readonly MeasurementRepository $measurementRepository,
         private readonly StationClient         $stationClient,
         private readonly EventPublisher        $eventPublisher,
+        private readonly string                $alertsQueue,
     ) {}
 
     public function handle(CreateMeasurementCommand $command): MeasurementResponse
@@ -50,7 +51,7 @@ final class CreateMeasurementHandler
         $this->measurementRepository->save($measurement);
 
         if ($measurement->alertStatus()) {
-            $this->eventPublisher->publish('alert-events', [
+            $this->eventPublisher->publish($this->alertsQueue, [
                 'event'          => 'AlertDetected',
                 'measurement_id' => $measurement->id()->value(),
                 'station_id'     => $measurement->stationId()->value(),
