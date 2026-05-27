@@ -1,28 +1,14 @@
 openapi: 3.0.3
 
 info:
-  title: WeatherFlow API
+  title: WeatherFlow Core API
   description: |
     API REST para la plataforma de servicios meteorológicos WeatherFlow.
-    Permite gestionar estaciones de medición, registrar datos climáticos y
-    evaluar alertas automáticas en base a umbrales predefinidos.
-
-    ## Reglas de alerta
-    Las alertas se evalúan automáticamente al crear o actualizar una medición.
-    Los umbrales son estrictos (los valores exactos **no** disparan alerta):
-
-    | Condición                  | Tipo de alerta     |
-    |----------------------------|--------------------|
-    | Temperatura > 40 °C        | Extreme Heat       |
-    | Temperatura < 0 °C         | Frost              |
-    | Presión atmosférica < 980 hPa | Storm           |
-    | Humedad > 90 %             | Critical Humidity  |
-
-    Una medición puede tener múltiples alertas activas simultáneamente.
+    Este servicio gestiona usuarios, sus suscripciones y estaciones meteorológicas.
   version: 1.0.0
 
 servers:
-  - url: http://localhost/api
+  - url: http://127.0.0.1:8080/api
     description: Entorno de desarrollo local (Laravel Sail)
 
 tags:
@@ -30,8 +16,6 @@ tags:
     description: Gestión de usuarios y sus suscripciones a estaciones
   - name: Weather Stations
     description: Gestión de estaciones meteorológicas
-  - name: Measurements
-    description: Registro y consulta de mediciones climáticas
 
 # =============================================================================
 # PATHS
@@ -356,164 +340,6 @@ paths:
               example:
                 message: "Station 660e8400-e29b-41d4-a716-446655440001 has measurements and cannot be deleted."
 
-  # ---------------------------------------------------------------------------
-  # MEASUREMENTS
-  # ---------------------------------------------------------------------------
-
-  /measurements:
-    get:
-      tags: [Measurements]
-      summary: Listar mediciones con filtros opcionales
-      operationId: listMeasurements
-      parameters:
-        - name: station
-          in: query
-          required: false
-          description: Filtrar por nombre de estación (búsqueda parcial)
-          schema:
-            type: string
-          example: "Central"
-        - name: temp_min
-          in: query
-          required: false
-          description: Temperatura mínima (inclusive)
-          schema:
-            type: number
-            format: float
-          example: 10.0
-        - name: temp_max
-          in: query
-          required: false
-          description: Temperatura máxima (inclusive)
-          schema:
-            type: number
-            format: float
-          example: 35.0
-        - name: alert
-          in: query
-          required: false
-          description: Filtrar solo mediciones con alerta activa (`true`) o sin alerta (`false`)
-          schema:
-            type: string
-            enum: [true, false, "1", "0"]
-          example: "true"
-        - name: alert_type
-          in: query
-          required: false
-          description: Filtrar por tipo de alerta específico
-          schema:
-            type: string
-            enum: [none, extreme_heat, frost, storm, critical_humidity]
-          example: "storm"
-      responses:
-        '200':
-          description: Lista de mediciones filtradas
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Measurement'
-
-    post:
-      tags: [Measurements]
-      summary: Registrar una medición
-      description: |
-        Registra una nueva medición y evalúa automáticamente las alertas.
-        Si los valores superan los umbrales, `alertStatus` será `true` y
-        `alertTypes` contendrá los tipos de alerta disparados.
-      operationId: createMeasurement
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateMeasurementRequest'
-            example:
-              station_id: "660e8400-e29b-41d4-a716-446655440001"
-              temperature: 42.5
-              humidity: 65.0
-              atmospheric_pressure: 1013.25
-              reported_at: "2024-06-15T14:30:00Z"
-      responses:
-        '201':
-          description: Medición registrada. Las alertas se calculan automáticamente
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Measurement'
-              example:
-                id: "770e8400-e29b-41d4-a716-446655440002"
-                stationId: "660e8400-e29b-41d4-a716-446655440001"
-                temperature: 42.5
-                humidity: 65.0
-                atmosphericPressure: 1013.25
-                reportedAt: "2024-06-15T14:30:00+00:00"
-                alertStatus: true
-                alertTypes: ["Extreme Heat"]
-        '422':
-          description: Datos inválidos o la estación no existe
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-              example:
-                message: "Weather station not found: '660e8400-e29b-41d4-a716-446655440001'"
-
-  /measurements/{id}:
-    parameters:
-      - $ref: '#/components/parameters/ResourceId'
-
-    get:
-      tags: [Measurements]
-      summary: Obtener una medición por ID
-      operationId: getMeasurement
-      responses:
-        '200':
-          description: Medición encontrada
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Measurement'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-    put:
-      tags: [Measurements]
-      summary: Actualizar una medición
-      description: Las alertas se recalculan automáticamente con los nuevos valores.
-      operationId: updateMeasurement
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateMeasurementRequest'
-      responses:
-        '200':
-          description: Medición actualizada. Las alertas se recalculan automáticamente
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Measurement'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '422':
-          $ref: '#/components/responses/UnprocessableEntity'
-
-    delete:
-      tags: [Measurements]
-      summary: Eliminar una medición
-      operationId: deleteMeasurement
-      responses:
-        '204':
-          description: Medición eliminada correctamente
-        '404':
-          $ref: '#/components/responses/NotFound'
-
 # =============================================================================
 # COMPONENTS
 # =============================================================================
@@ -789,108 +615,4 @@ components:
           enum: [active, inactive]
           example: "active"
 
-    # --- Measurements ---------------------------------------------------------
-
-    Measurement:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-          example: "770e8400-e29b-41d4-a716-446655440002"
-        stationId:
-          type: string
-          format: uuid
-          example: "660e8400-e29b-41d4-a716-446655440001"
-        temperature:
-          type: number
-          format: float
-          description: Temperatura en °C
-          example: 42.5
-        humidity:
-          type: number
-          format: float
-          description: Humedad relativa en porcentaje (0–100)
-          minimum: 0
-          maximum: 100
-          example: 65.0
-        atmosphericPressure:
-          type: number
-          format: float
-          description: Presión atmosférica en hPa (> 0)
-          example: 1013.25
-        reportedAt:
-          type: string
-          format: date-time
-          description: Fecha y hora de la medición (ISO 8601)
-          example: "2024-06-15T14:30:00+00:00"
-        alertStatus:
-          type: boolean
-          description: true si al menos una alerta fue disparada
-          example: true
-        alertTypes:
-          type: array
-          description: Lista de tipos de alerta activos. Contiene "None" si no hay alertas
-          items:
-            type: string
-            enum: [None, "Extreme Heat", Frost, Storm, "Critical Humidity"]
-          example: ["Extreme Heat"]
-
-    CreateMeasurementRequest:
-      type: object
-      required: [station_id, temperature, humidity, atmospheric_pressure, reported_at]
-      properties:
-        station_id:
-          type: string
-          format: uuid
-          example: "660e8400-e29b-41d4-a716-446655440001"
-        temperature:
-          type: number
-          format: float
-          description: Temperatura en °C
-          example: 42.5
-        humidity:
-          type: number
-          format: float
-          description: Humedad relativa (0–100)
-          minimum: 0
-          maximum: 100
-          example: 65.0
-        atmospheric_pressure:
-          type: number
-          format: float
-          description: Presión atmosférica en hPa (debe ser > 0)
-          example: 1013.25
-        reported_at:
-          type: string
-          format: date-time
-          description: Fecha y hora de la medición
-          example: "2024-06-15T14:30:00Z"
-
-    UpdateMeasurementRequest:
-      type: object
-      required: [temperature, humidity, atmospheric_pressure, reported_at]
-      properties:
-        temperature:
-          type: number
-          format: float
-          description: Temperatura en °C
-          example: 38.0
-        humidity:
-          type: number
-          format: float
-          description: Humedad relativa (0–100)
-          minimum: 0
-          maximum: 100
-          example: 72.0
-        atmospheric_pressure:
-          type: number
-          format: float
-          description: Presión atmosférica en hPa (debe ser > 0)
-          example: 975.0
-        reported_at:
-          type: string
-          format: date-time
-          description: Fecha y hora de la medición
-          example: "2024-06-15T15:00:00Z"
 
