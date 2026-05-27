@@ -16,6 +16,7 @@ final class StationResponse
         public readonly float  $longitude,
         public readonly string $sensorModel,
         public readonly string $status,
+        public readonly string $createdAt,
     ) {}
 
     public static function fromEntity(WeatherStation $station): self
@@ -28,6 +29,7 @@ final class StationResponse
             longitude:   $station->location()->longitude(),
             sensorModel: $station->sensorModel(),
             status:      $station->status()->value,
+            createdAt:   $station->createdAt()->format(\DateTimeInterface::ATOM),
         );
     }
 }
