@@ -127,9 +127,8 @@ Luego repetir `docker compose up -d`. Este problema es específico de Windows co
 
 ### Unable to get image
 
-Las causas más comunes y sus fixes:
+Las causas mas común si estás en WSL2:
 
-Si estás en WSL2:
 - Agregar el usuario al grupo docker (solo una vez)
 sudo usermod -aG docker $USER
 
