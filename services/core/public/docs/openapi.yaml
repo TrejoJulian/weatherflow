@@ -8,8 +8,8 @@ info:
   version: 1.0.0
 
 servers:
-  - url: http://127.0.0.1:8080/api
-    description: Entorno de desarrollo local (Laravel Sail)
+  - url:  http://127.0.0.1:8080/api
+    description: Mismo host y puerto desde el que se abre Swagger UI (p. ej. http://localhost:8081)
 
 tags:
   - name: Users
@@ -226,17 +226,47 @@ paths:
   /stations:
     get:
       tags: [Weather Stations]
-      summary: Listar todas las estaciones
+      summary: Listar estaciones meteorológicas
+      description: |
+        Devuelve todas las estaciones. Los filtros son opcionales y se pueden combinar.
+        Sin parámetros, devuelve el listado completo.
       operationId: listStations
+      parameters:
+        - name: name
+          in: query
+          required: false
+          description: Filtra por nombre parcial (búsqueda insensible a mayúsculas/minúsculas).
+          schema:
+            type: string
+            maxLength: 255
+          example: Central
+        - name: created_from
+          in: query
+          required: false
+          description: Incluye estaciones creadas en o después de esta fecha (inclusive).
+          schema:
+            type: string
+            format: date
+          example: "2026-02-01"
+        - name: created_to
+          in: query
+          required: false
+          description: Incluye estaciones creadas en o antes de esta fecha (inclusive). Debe ser mayor o igual que `created_from` si ambos se envían.
+          schema:
+            type: string
+            format: date
+          example: "2026-03-01"
       responses:
         '200':
-          description: Lista de estaciones meteorológicas
+          description: Lista de estaciones meteorológicas que coinciden con los filtros aplicados
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/Station'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
 
     post:
       tags: [Weather Stations]
