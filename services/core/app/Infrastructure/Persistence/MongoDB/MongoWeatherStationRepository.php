@@ -64,8 +64,14 @@ final class MongoWeatherStationRepository implements WeatherStationRepository
     {
         return WeatherStationModel::query()
             ->when($filters->name(), fn ($query) => $query->where('name', 'like', "%{$filters->name()}%"))
-            ->when($filters->createdFrom(), fn ($query) => $query->where('created_at', '>=', $filters->createdFrom()))
-            ->when($filters->createdTo(), fn ($query) => $query->where('created_at', '<=', $filters->createdTo()))
+            ->when($filters->createdFrom(), function ($query) use ($filters) {
+                $from = (new \DateTimeImmutable($filters->createdFrom()))->setTime(0, 0, 0);
+                $query->where('created_at', '>=', $from->format(DateTimeInterface::ATOM));
+            })
+            ->when($filters->createdTo(), function ($query) use ($filters) {
+                $to = (new \DateTimeImmutable($filters->createdTo()))->setTime(23, 59, 59);
+                $query->where('created_at', '<=', $to->format(DateTimeInterface::ATOM));
+            })
             ->get()
             ->map(fn (WeatherStationModel $model) => $this->toDomain($model))
             ->all();

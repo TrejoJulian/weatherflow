@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WeatherFlow</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <nav class="nav">
+    <span class="nav-brand">WeatherFlow</span>
+    <div class="nav-links">
+      <button class="nav-btn active" data-tab="measurements">Measurements</button>
+      <button class="nav-btn" data-tab="stations">Stations</button>
+      <button class="nav-btn" data-tab="users">Users</button>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <!-- ── Measurements ── -->
+    <section id="tab-measurements" class="tab active">
+      <div class="tab-header">
+        <h1>Measurements</h1>
+        <button class="btn btn-primary" id="btn-new-measurement">+ New</button>
+      </div>
+
+      <div class="filters">
+        <input type="text"           id="f-station-name"   placeholder="Station name…">
+        <input type="datetime-local" id="f-date-from"      title="From">
+        <input type="datetime-local" id="f-date-to"        title="To">
+        <input type="number"         id="f-temp-min"       placeholder="Temp min (°C)"  step="0.1">
+        <input type="number"         id="f-temp-max"       placeholder="Temp max (°C)"  step="0.1">
+        <input type="number"         id="f-humidity-min"   placeholder="Hum min (%)"    step="0.1">
+        <input type="number"         id="f-humidity-max"   placeholder="Hum max (%)"    step="0.1">
+        <input type="number"         id="f-pressure-min"   placeholder="Press min (hPa)" step="0.1">
+        <input type="number"         id="f-pressure-max"   placeholder="Press max (hPa)" step="0.1">
+        <select id="f-alert-type">
+          <option value="">All</option>
+          <option value="alert_only">Has alert</option>
+          <option value="extreme_heat">Extreme Heat</option>
+          <option value="frost">Frost</option>
+          <option value="storm">Storm</option>
+          <option value="critical_humidity">Critical Humidity</option>
+        </select>
+        <button class="btn btn-secondary" id="btn-apply-filters">Apply</button>
+        <button class="btn btn-ghost"     id="btn-clear-filters">Clear</button>
+      </div>
+
+      <div id="measurements-list"></div>
+    </section>
+
+    <!-- ── Stations ── -->
+    <section id="tab-stations" class="tab">
+      <div class="tab-header">
+        <h1>Stations</h1>
+        <button class="btn btn-primary" id="btn-new-station">+ New</button>
+      </div>
+
+      <div class="filters">
+        <input type="text" id="sf-name"         placeholder="Station name…">
+        <input type="date" id="sf-created-from" title="Created from">
+        <input type="date" id="sf-created-to"   title="Created to">
+        <button class="btn btn-secondary" id="btn-apply-station-filters">Apply</button>
+        <button class="btn btn-ghost"     id="btn-clear-station-filters">Clear</button>
+      </div>
+
+      <div id="stations-list"></div>
+    </section>
+
+    <!-- ── Users ── -->
+    <section id="tab-users" class="tab">
+      <div class="tab-header">
+        <h1>Users</h1>
+        <button class="btn btn-primary" id="btn-new-user">+ New</button>
+      </div>
+      <div id="users-list"></div>
+    </section>
+
+  </main>
+
+  <!-- Modal -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-backdrop" id="modal-backdrop"></div>
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 id="modal-title"></h2>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Toasts -->
+  <div id="toasts"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
