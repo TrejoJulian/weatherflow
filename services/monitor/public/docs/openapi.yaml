@@ -27,6 +27,8 @@ servers:
 tags:
   - name: Measurements
     description: Registro y consulta de mediciones climáticas
+  - name: Reports
+    description: Reportes de agregación local sobre mediciones persistidas
 
 paths:
   /measurements:
@@ -215,6 +217,60 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /reports/avg/day:
+    get:
+      tags: [Reports]
+      summary: Promedio de temperatura de las últimas 24 horas
+      description: |
+        Calcula el promedio de temperatura de una estación en las últimas 24 horas
+        a partir de las mediciones persistidas localmente. No realiza llamadas externas.
+      operationId: getDailyAverageTemperature
+      parameters:
+        - name: station_id
+          in: query
+          required: true
+          description: UUID de la estación meteorológica
+          schema:
+            type: string
+            format: uuid
+          example: "660e8400-e29b-41d4-a716-446655440001"
+      responses:
+        '200':
+          description: Promedio calculado o sin datos en la ventana
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AverageTemperatureReport'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
+  /reports/avg/week:
+    get:
+      tags: [Reports]
+      summary: Promedio de temperatura de los últimos 7 días
+      description: |
+        Calcula el promedio de temperatura de una estación en los últimos 7 días
+        a partir de las mediciones persistidas localmente. No realiza llamadas externas.
+      operationId: getWeeklyAverageTemperature
+      parameters:
+        - name: station_id
+          in: query
+          required: true
+          description: UUID de la estación meteorológica
+          schema:
+            type: string
+            format: uuid
+          example: "660e8400-e29b-41d4-a716-446655440001"
+      responses:
+        '200':
+          description: Promedio calculado o sin datos en la ventana
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AverageTemperatureReport'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+
 components:
   parameters:
     ResourceId:
@@ -365,3 +421,38 @@ components:
           format: date-time
           description: Fecha y hora de la medición
           example: "2024-06-15T15:00:00Z"
+
+    AverageTemperatureReport:
+      type: object
+      properties:
+        stationId:
+          type: string
+          format: uuid
+          description: UUID de la estación consultada
+          example: "660e8400-e29b-41d4-a716-446655440001"
+        window:
+          type: string
+          enum: [day, week]
+          description: Ventana temporal del reporte
+          example: "day"
+        averageTemperature:
+          type: number
+          format: float
+          nullable: true
+          description: Promedio de temperatura en °C, o null si no hay mediciones en la ventana
+          example: 22.5
+        from:
+          type: string
+          format: date-time
+          description: Inicio de la ventana temporal (ISO 8601)
+          example: "2024-06-14T14:30:00+00:00"
+        to:
+          type: string
+          format: date-time
+          description: Fin de la ventana temporal (ISO 8601)
+          example: "2024-06-15T14:30:00+00:00"
+        message:
+          type: string
+          nullable: true
+          description: Mensaje descriptivo cuando no hay mediciones en la ventana
+          example: "No measurements found for this station in the requested time window."
