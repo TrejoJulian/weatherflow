@@ -9,8 +9,15 @@ services:
     environment:
       QUEUE_ALERTS: alert-events-test
       QUEUE_STATIONS: station-events-test
+      QUEUE_RAW_MEASUREMENTS: raw-measurements-test
 
   monitor-worker:
     environment:
       MONGODB_DATABASE: weatherflow_monitor_test
       QUEUE_STATIONS: station-events-test
+
+  monitor-worker-raw:
+    environment:
+      MONGODB_DATABASE: weatherflow_monitor_test
+      QUEUE_RAW_MEASUREMENTS: raw-measurements-test
+      QUEUE_ALERTS: alert-events-test

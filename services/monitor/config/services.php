@@ -47,8 +47,9 @@ return [
     ],
 
     'queues' => [
-        'alerts'   => env('QUEUE_ALERTS', 'alert-events'),
-        'stations' => env('QUEUE_STATIONS', 'station-events'),
+        'alerts'           => env('QUEUE_ALERTS', 'alert-events'),
+        'stations'         => env('QUEUE_STATIONS', 'station-events'),
+        'raw_measurements' => env('QUEUE_RAW_MEASUREMENTS', 'raw-measurements'),
     ],
 
 ];

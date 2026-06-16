@@ -6,6 +6,7 @@ namespace App\Providers;
 
 use App\Application\Contracts\EventPublisher;
 use App\Application\Measurement\CreateMeasurement\CreateMeasurementHandler;
+use App\Application\Messaging\RawMeasurementHandler;
 use App\Domain\Measurement\Repositories\MeasurementRepository;
 use App\Domain\WeatherStation\Clients\StationClient;
 use App\Infrastructure\Http\Clients\CoreStationClient;
@@ -26,6 +27,14 @@ class AppServiceProvider extends ServiceProvider
             return new CreateMeasurementHandler(
                 $app->make(MeasurementRepository::class),
                 $app->make(StationClient::class),
+                $app->make(EventPublisher::class),
+                config('services.queues.alerts'),
+            );
+        });
+
+        $this->app->bind(RawMeasurementHandler::class, function ($app) {
+            return new RawMeasurementHandler(
+                $app->make(MeasurementRepository::class),
                 $app->make(EventPublisher::class),
                 config('services.queues.alerts'),
             );
