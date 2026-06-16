@@ -19,6 +19,7 @@ services:
       XDEBUG_CONFIG: '${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}'
     volumes:
       - './services/core:/var/www/html'
+      - './services/core/docker/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf'
     networks:
       - weatherflow
     depends_on:
