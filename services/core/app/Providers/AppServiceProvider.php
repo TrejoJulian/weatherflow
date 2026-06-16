@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Application\Contracts\EventPublisher;
+use App\Application\IngestMeasurements\IngestMeasurementsHandler;
 use App\Application\WeatherStation\UpdateStation\UpdateStationHandler;
 use App\Domain\User\Repositories\UserRepository;
 use App\Domain\WeatherStation\Repositories\WeatherStationRepository;
@@ -36,6 +37,15 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ClimateProviderFactory::class, function ($app) {
             return new ClimateProviderFactory(
                 $app->make(OpenWeatherProvider::class),
+            );
+        });
+
+        $this->app->bind(IngestMeasurementsHandler::class, function ($app) {
+            return new IngestMeasurementsHandler(
+                $app->make(WeatherStationRepository::class),
+                $app->make(ClimateProviderFactory::class),
+                $app->make(EventPublisher::class),
+                config('services.queues.raw_measurements'),
             );
         });
     }
