@@ -1,13 +1,17 @@
+# Shared slim PHP runtime built once and reused by every PHP service.
+# The app code is bind-mounted per service, so a single image serves all of them.
+x-php-build: &php-build
+  context: './docker/php'
+  dockerfile: Dockerfile
+  args:
+    WWWGROUP: '${WWWGROUP:-1000}'
+
 services:
 
   core:
     container_name: weatherflow-core
-    build:
-      context: './services/core/vendor/laravel/sail/runtimes/8.4'
-      dockerfile: Dockerfile
-      args:
-        WWWGROUP: '${WWWGROUP:-1000}'
-    image: 'sail-8.4/core'
+    build: *php-build
+    image: 'weatherflow/php:8.4'
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     ports:
@@ -27,12 +31,8 @@ services:
 
   monitor:
     container_name: weatherflow-monitor
-    build:
-      context: './services/monitor/vendor/laravel/sail/runtimes/8.4'
-      dockerfile: Dockerfile
-      args:
-        WWWGROUP: '${WWWGROUP:-1000}'
-    image: 'sail-8.4/monitor'
+    build: *php-build
+    image: 'weatherflow/php:8.4'
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     ports:
@@ -100,12 +100,8 @@ services:
 
   monitor-worker:
     container_name: weatherflow-monitor-worker
-    build:
-      context: './services/monitor/vendor/laravel/sail/runtimes/8.4'
-      dockerfile: Dockerfile
-      args:
-        WWWGROUP: '${WWWGROUP:-1000}'
-    image: 'sail-8.4/monitor'
+    build: *php-build
+    image: 'weatherflow/php:8.4'
     command: php artisan monitor:consume-station-events
     restart: unless-stopped
     environment:
@@ -121,12 +117,8 @@ services:
 
   monitor-worker-raw:
     container_name: weatherflow-monitor-worker-raw
-    build:
-      context: './services/monitor/vendor/laravel/sail/runtimes/8.4'
-      dockerfile: Dockerfile
-      args:
-        WWWGROUP: '${WWWGROUP:-1000}'
-    image: 'sail-8.4/monitor'
+    build: *php-build
+    image: 'weatherflow/php:8.4'
     command: php artisan monitor:consume-raw-measurements
     restart: unless-stopped
     environment:
