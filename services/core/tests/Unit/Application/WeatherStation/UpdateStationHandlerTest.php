@@ -24,8 +24,9 @@ function makeUpdateStationCommand(string $stationId, string $ownerId): UpdateSta
         stationName: 'Estación Actualizada',
         latitude:    0.0,
         longitude:   0.0,
-        sensorModel: 'Sensor Nuevo',
-        status:      'inactive',
+        sensorModel:     'Sensor Nuevo',
+        status:          'inactive',
+        climateProvider: 'openweather',
     );
 }
 
@@ -82,8 +83,9 @@ test('publishes StationRenamed event to station-events queue when name changes',
         stationName: 'Nombre Nuevo',
         latitude:    0.0,
         longitude:   0.0,
-        sensorModel: 'Sensor X',
-        status:      'active',
+        sensorModel:     'Sensor X',
+        status:          'active',
+        climateProvider: 'openweather',
     ));
 
     expect($publisher->wasPublishedTo('station-events'))->toBeTrue();
@@ -111,8 +113,9 @@ test('does not publish to station-events queue when name does not change', funct
         stationName: 'Nombre Original',
         latitude:    0.0,
         longitude:   0.0,
-        sensorModel: 'Sensor X',
-        status:      'active',
+        sensorModel:     'Sensor X',
+        status:          'active',
+        climateProvider: 'openweather',
     ));
 
     expect($publisher->wasPublishedTo('station-events'))->toBeFalse();

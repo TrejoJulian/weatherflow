@@ -13,5 +13,6 @@ final class CreateStationCommand
         public readonly float   $longitude,
         public readonly string  $sensorModel,
         public readonly ?string $status,
+        public readonly string  $climateProvider,
     ) {}
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Domain\User\ValueObjects\UserId;
 use App\Domain\WeatherStation\Entities\WeatherStation;
+use App\Domain\WeatherStation\Enums\ClimateProviderType;
 use App\Domain\WeatherStation\Enums\StationStatus;
 use App\Domain\WeatherStation\ValueObjects\Location;
 use App\Domain\WeatherStation\ValueObjects\StationId;
@@ -33,6 +34,18 @@ test('defaults status to active', function () {
     );
 
     expect($station->status())->toBe(StationStatus::Active);
+});
+
+test('defaults climateProvider to OpenWeather', function () {
+    $station = WeatherStation::create(
+        StationId::generate(),
+        UserId::fromString('00000000-0000-4000-a000-000000000001'),
+        'Estación Central',
+        new Location(-34.6037, -58.3816),
+        'Davis Vantage Pro2',
+    );
+
+    expect($station->climateProvider())->toBe(ClimateProviderType::OpenWeather);
 });
 
 test('defaults createdAt to approximately now', function () {
@@ -81,6 +94,7 @@ test('update does not change createdAt', function () {
         new Location(0.0, 0.0),
         'Sensor X',
         StationStatus::Inactive,
+        ClimateProviderType::OpenWeather,
     );
 
     expect($station->createdAt())->toEqual($createdAt);
@@ -97,7 +111,7 @@ test('updates station data', function () {
     );
 
     $newOwner = UserId::fromString('00000000-0000-4000-a000-000000000002');
-    $station->update($newOwner, 'Estación Norte', new Location(0.0, 0.0), 'Sensor X', StationStatus::Inactive);
+    $station->update($newOwner, 'Estación Norte', new Location(0.0, 0.0), 'Sensor X', StationStatus::Inactive, ClimateProviderType::OpenWeather);
 
     expect($station->id()->equals($id))->toBeTrue()
         ->and($station->stationName())->toBe('Estación Norte')

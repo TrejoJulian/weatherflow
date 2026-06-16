@@ -16,6 +16,7 @@ final class StationResponse
         public readonly float  $longitude,
         public readonly string $sensorModel,
         public readonly string $status,
+        public readonly string $climateProvider,
         public readonly string $createdAt,
     ) {}
 
@@ -27,9 +28,10 @@ final class StationResponse
             stationName: $station->stationName(),
             latitude:    $station->location()->latitude(),
             longitude:   $station->location()->longitude(),
-            sensorModel: $station->sensorModel(),
-            status:      $station->status()->value,
-            createdAt:   $station->createdAt()->format(\DateTimeInterface::ATOM),
+            sensorModel:     $station->sensorModel(),
+            status:          $station->status()->value,
+            climateProvider: $station->climateProvider()->value,
+            createdAt:       $station->createdAt()->format(\DateTimeInterface::ATOM),
         );
     }
 }

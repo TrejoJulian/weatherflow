@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Domain\WeatherStation\Entities;
 
 use App\Domain\User\ValueObjects\UserId;
+use App\Domain\WeatherStation\Enums\ClimateProviderType;
 use App\Domain\WeatherStation\Enums\StationStatus;
 use App\Domain\WeatherStation\ValueObjects\Location;
 use App\Domain\WeatherStation\ValueObjects\StationId;
@@ -18,33 +19,37 @@ final class WeatherStation
         private Location                     $location,
         private string                       $sensorModel,
         private StationStatus                $status,
+        private ClimateProviderType          $climateProvider,
         private readonly \DateTimeImmutable  $createdAt,
     ) {}
 
     public static function create(
-        StationId          $id,
-        UserId             $ownerId,
-        string             $stationName,
-        Location           $location,
-        string             $sensorModel,
-        StationStatus      $status = StationStatus::Active,
-        \DateTimeImmutable $createdAt = new \DateTimeImmutable(),
+        StationId           $id,
+        UserId              $ownerId,
+        string              $stationName,
+        Location            $location,
+        string              $sensorModel,
+        StationStatus       $status = StationStatus::Active,
+        ClimateProviderType $climateProvider = ClimateProviderType::OpenWeather,
+        \DateTimeImmutable  $createdAt = new \DateTimeImmutable(),
     ): self {
-        return new self($id, $ownerId, $stationName, $location, $sensorModel, $status, $createdAt);
+        return new self($id, $ownerId, $stationName, $location, $sensorModel, $status, $climateProvider, $createdAt);
     }
 
     public function update(
-        UserId        $ownerId,
-        string        $stationName,
-        Location      $location,
-        string        $sensorModel,
-        StationStatus $status,
+        UserId              $ownerId,
+        string              $stationName,
+        Location            $location,
+        string              $sensorModel,
+        StationStatus       $status,
+        ClimateProviderType $climateProvider,
     ): void {
-        $this->ownerId     = $ownerId;
-        $this->stationName = $stationName;
-        $this->location    = $location;
-        $this->sensorModel = $sensorModel;
-        $this->status      = $status;
+        $this->ownerId         = $ownerId;
+        $this->stationName     = $stationName;
+        $this->location        = $location;
+        $this->sensorModel     = $sensorModel;
+        $this->status          = $status;
+        $this->climateProvider = $climateProvider;
     }
 
     public function id(): StationId
@@ -75,6 +80,11 @@ final class WeatherStation
     public function status(): StationStatus
     {
         return $this->status;
+    }
+
+    public function climateProvider(): ClimateProviderType
+    {
+        return $this->climateProvider;
     }
 
     public function createdAt(): \DateTimeImmutable

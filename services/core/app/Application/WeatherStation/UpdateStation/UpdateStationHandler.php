@@ -9,6 +9,7 @@ use App\Application\WeatherStation\StationResponse;
 use App\Domain\User\Exceptions\UserNotFoundException;
 use App\Domain\User\Repositories\UserRepository;
 use App\Domain\User\ValueObjects\UserId;
+use App\Domain\WeatherStation\Enums\ClimateProviderType;
 use App\Domain\WeatherStation\Enums\StationStatus;
 use App\Domain\WeatherStation\Exceptions\StationNotFoundException;
 use App\Domain\WeatherStation\Repositories\WeatherStationRepository;
@@ -46,6 +47,7 @@ final class UpdateStationHandler
             new Location($command->latitude, $command->longitude),
             $command->sensorModel,
             StationStatus::from($command->status),
+            ClimateProviderType::from($command->climateProvider),
         );
 
         if ($oldName !== $command->stationName) {

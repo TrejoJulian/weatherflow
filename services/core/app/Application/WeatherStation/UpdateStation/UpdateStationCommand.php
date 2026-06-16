@@ -12,7 +12,8 @@ final class UpdateStationCommand
         public readonly string $stationName,
         public readonly float  $latitude,
         public readonly float  $longitude,
-        public readonly string $sensorModel,
-        public readonly string $status,
+        public readonly string  $sensorModel,
+        public readonly string  $status,
+        public readonly string  $climateProvider,
     ) {}
 }

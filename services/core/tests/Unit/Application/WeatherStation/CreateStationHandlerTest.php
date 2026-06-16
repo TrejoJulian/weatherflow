@@ -25,8 +25,9 @@ function makeCreateStationCommand(string $ownerId, ?string $status = null): Crea
         stationName: 'Estación Central',
         latitude:    -34.6037,
         longitude:   -58.3816,
-        sensorModel: 'Davis Vantage Pro2',
-        status:      $status,
+        sensorModel:     'Davis Vantage Pro2',
+        status:          $status,
+        climateProvider: 'openweather',
     );
 }
 
