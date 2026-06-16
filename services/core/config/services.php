@@ -43,12 +43,17 @@ return [
     ],
 
     'queues' => [
-        'stations' => env('QUEUE_STATIONS', 'station-events'),
+        'stations'         => env('QUEUE_STATIONS', 'station-events'),
+        'raw_measurements' => env('QUEUE_RAW_MEASUREMENTS', 'raw-measurements'),
     ],
 
     'openweather' => [
         'key'      => env('OPENWEATHER_API_KEY'),
         'base_url' => env('OPENWEATHER_BASE_URL', 'https://api.openweathermap.org/data/2.5'),
+    ],
+
+    'ingestion' => [
+        'cron' => env('INGESTION_CRON', '*/10 * * * *'),
     ],
 
 ];
