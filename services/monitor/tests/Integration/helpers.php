@@ -6,6 +6,7 @@ use App\Infrastructure\Persistence\MongoDB\MeasurementModel;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
+use PhpAmqpLib\Message\AMQPMessage;
 
 function coreHttp(): PendingRequest
 {
@@ -163,4 +164,67 @@ function rabbitMQTestConnection(): AMQPStreamConnection
         user:     config('services.rabbitmq.user'),
         password: config('services.rabbitmq.password'),
     );
+}
+
+function publishMessageToQueue(string $queue, array $payload): void
+{
+    $connection = rabbitMQTestConnection();
+    $channel    = $connection->channel();
+
+    try {
+        $channel->queue_declare(
+            queue:       $queue,
+            passive:     false,
+            durable:     true,
+            exclusive:   false,
+            auto_delete: false,
+        );
+
+        $channel->basic_publish(
+            msg: new AMQPMessage(
+                body:       json_encode($payload),
+                properties: [
+                    'content_type'  => 'application/json',
+                    'delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT,
+                ],
+            ),
+            exchange:    '',
+            routing_key: $queue,
+        );
+    } finally {
+        $channel->close();
+        $connection->close();
+    }
+}
+
+function rawMeasurementPayload(array $overrides = []): array
+{
+    return array_merge([
+        'event'                => 'RawMeasurementIngested',
+        'station_id'           => '00000000-0000-4000-a000-000000000010',
+        'station_name'         => 'Universidad Nacional de Quilmes',
+        'provider'             => 'openweather',
+        'temperature'          => 21.4,
+        'humidity'             => 70.0,
+        'atmospheric_pressure' => 1012.0,
+        'reported_at'          => '2026-06-08T15:00:00Z',
+        'trace_id'             => 'ingest-integration-test',
+    ], $overrides);
+}
+
+function waitForMeasurement(string $stationId, int $timeoutSeconds = 10): MeasurementModel
+{
+    $deadline = time() + $timeoutSeconds;
+
+    while (time() < $deadline) {
+        $model = MeasurementModel::where('station_id', $stationId)->first();
+
+        if ($model !== null) {
+            return $model;
+        }
+
+        usleep(200_000);
+    }
+
+    expect(true)->toBeFalse("Timed out after {$timeoutSeconds}s waiting for measurement on station {$stationId}");
 }

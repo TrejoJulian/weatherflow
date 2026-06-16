@@ -41,6 +41,7 @@
         <env name="CORE_SERVICE_URL" value="http://core/api"/>
         <env name="QUEUE_ALERTS" value="alert-events-test"/>
         <env name="QUEUE_STATIONS" value="station-events-test"/>
+        <env name="QUEUE_RAW_MEASUREMENTS" value="raw-measurements-test"/>
         <env name="RABBITMQ_HOST" value="rabbitmq"/>
         <env name="RABBITMQ_PORT" value="5672"/>
         <env name="RABBITMQ_USER" value="weatherflow"/>
