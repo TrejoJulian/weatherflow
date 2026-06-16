@@ -16,6 +16,8 @@ tags:
     description: Gestión de usuarios y sus suscripciones a estaciones
   - name: Weather Stations
     description: Gestión de estaciones meteorológicas
+  - name: Reports
+    description: Consultas de datos climáticos en vivo desde el proveedor
 
 # =============================================================================
 # PATHS
@@ -370,6 +372,54 @@ paths:
                     type: string
               example:
                 message: "Station 660e8400-e29b-41d4-a716-446655440001 has measurements and cannot be deleted."
+
+  # ---------------------------------------------------------------------------
+  # REPORTS
+  # ---------------------------------------------------------------------------
+
+  /reports/current-temp/{stationId}:
+    get:
+      tags: [Reports]
+      summary: Temperatura actual de una estación
+      description: >
+        Consulta en vivo la temperatura actual de la estación llamando al proveedor
+        climático (OpenWeatherMap) en el momento de la request, usando la ubicación
+        de la estación. No lee de la base de mediciones.
+      operationId: getCurrentTemperature
+      parameters:
+        - name: stationId
+          in: path
+          required: true
+          description: UUID de la estación
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Temperatura actual obtenida del proveedor
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  station_id:
+                    type: string
+                    format: uuid
+                  station_name:
+                    type: string
+                  temperature:
+                    type: number
+                    description: Temperatura actual en °C
+                  reported_at:
+                    type: string
+                    format: date-time
+                example:
+                  station_id: "00000000-0000-4000-8000-000000000101"
+                  station_name: "Universidad Nacional de Quilmes"
+                  temperature: 21.4
+                  reported_at: "2026-06-16T15:00:00+00:00"
+        '404':
+          $ref: '#/components/responses/NotFound'
 
 # =============================================================================
 # COMPONENTS
