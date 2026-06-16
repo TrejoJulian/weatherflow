@@ -285,6 +285,7 @@ paths:
               longitude: -58.3816
               sensor_model: "Davis Vantage Pro2"
               status: "active"
+              climate_provider: "openweather"
       responses:
         '201':
           description: Estación creada correctamente
@@ -502,6 +503,10 @@ components:
           type: string
           enum: [active, inactive]
           example: "active"
+        climateProvider:
+          type: string
+          enum: [openweather]
+          example: "openweather"
 
     CreateUserRequest:
       type: object
@@ -577,6 +582,10 @@ components:
           type: string
           enum: [active, inactive]
           example: "active"
+        climateProvider:
+          type: string
+          enum: [openweather]
+          example: "openweather"
 
     CreateStationRequest:
       type: object
@@ -611,6 +620,11 @@ components:
           enum: [active, inactive]
           default: active
           example: "active"
+        climate_provider:
+          type: string
+          enum: [openweather]
+          default: openweather
+          example: "openweather"
 
     UpdateStationRequest:
       type: object
@@ -644,5 +658,10 @@ components:
           type: string
           enum: [active, inactive]
           example: "active"
+        climate_provider:
+          type: string
+          enum: [openweather]
+          default: openweather
+          example: "openweather"
 
 

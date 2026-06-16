@@ -6,6 +6,7 @@ namespace App\Infrastructure\Persistence\MongoDB;
 
 use App\Domain\User\ValueObjects\UserId;
 use App\Domain\WeatherStation\Entities\WeatherStation;
+use App\Domain\WeatherStation\Enums\ClimateProviderType;
 use App\Domain\WeatherStation\Enums\StationStatus;
 use App\Domain\WeatherStation\Repositories\WeatherStationRepository;
 use App\Domain\WeatherStation\ValueObjects\Location;
@@ -18,14 +19,15 @@ final class MongoWeatherStationRepository implements WeatherStationRepository
     public function save(WeatherStation $station): void
     {
         $data = [
-            'owner_id'     => $station->ownerId()->value(),
-            'name'         => $station->stationName(),
-            'location'     => [
+            'owner_id'         => $station->ownerId()->value(),
+            'name'             => $station->stationName(),
+            'location'         => [
                 'latitude'  => $station->location()->latitude(),
                 'longitude' => $station->location()->longitude(),
             ],
-            'sensor_model' => $station->sensorModel(),
-            'status'       => $station->status()->value,
+            'sensor_model'     => $station->sensorModel(),
+            'status'           => $station->status()->value,
+            'climate_provider' => $station->climateProvider()->value,
         ];
 
         if (! WeatherStationModel::where('_id', $station->id()->value())->exists()) {
@@ -91,6 +93,7 @@ final class MongoWeatherStationRepository implements WeatherStationRepository
             new Location($model->location['latitude'], $model->location['longitude']),
             $model->sensor_model,
             StationStatus::from($model->status),
+            ClimateProviderType::from($model->climate_provider ?? 'openweather'),
             createdAt: new \DateTimeImmutable($model->created_at ?? 'now'),
         );
     }

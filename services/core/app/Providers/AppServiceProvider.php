@@ -8,6 +8,8 @@ use App\Application\Contracts\EventPublisher;
 use App\Application\WeatherStation\UpdateStation\UpdateStationHandler;
 use App\Domain\User\Repositories\UserRepository;
 use App\Domain\WeatherStation\Repositories\WeatherStationRepository;
+use App\Infrastructure\Http\Clients\ClimateProviderFactory;
+use App\Infrastructure\Http\Clients\OpenWeatherProvider;
 use App\Infrastructure\Messaging\RabbitMQEventPublisher;
 use App\Infrastructure\Persistence\MongoDB\MongoUserRepository;
 use App\Infrastructure\Persistence\MongoDB\MongoWeatherStationRepository;
@@ -27,6 +29,13 @@ class AppServiceProvider extends ServiceProvider
                 $app->make(UserRepository::class),
                 $app->make(EventPublisher::class),
                 config('services.queues.stations'),
+            );
+        });
+
+        $this->app->singleton(OpenWeatherProvider::class);
+        $this->app->singleton(ClimateProviderFactory::class, function ($app) {
+            return new ClimateProviderFactory(
+                $app->make(OpenWeatherProvider::class),
             );
         });
     }

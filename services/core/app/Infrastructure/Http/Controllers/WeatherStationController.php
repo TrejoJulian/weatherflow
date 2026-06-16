@@ -57,8 +57,9 @@ final class WeatherStationController
                 stationName: $request->input('station_name'),
                 latitude:    (float) $request->input('latitude'),
                 longitude:   (float) $request->input('longitude'),
-                sensorModel: $request->input('sensor_model'),
-                status:      $request->input('status'),
+                sensorModel:     $request->input('sensor_model'),
+                status:          $request->input('status'),
+                climateProvider: $request->input('climate_provider'),
             ));
 
             return response()->json($station, 201);
@@ -76,8 +77,9 @@ final class WeatherStationController
                 stationName: $request->input('station_name'),
                 latitude:    (float) $request->input('latitude'),
                 longitude:   (float) $request->input('longitude'),
-                sensorModel: $request->input('sensor_model'),
-                status:      $request->input('status'),
+                sensorModel:     $request->input('sensor_model'),
+                status:          $request->input('status'),
+                climateProvider: $request->input('climate_provider'),
             ));
 
             return response()->json($station);

@@ -36,10 +36,11 @@ test('creates a station and returns 201', function () {
     ]);
 
     $response->assertStatus(201)
-        ->assertJsonStructure(['id', 'ownerId', 'stationName', 'latitude', 'longitude', 'sensorModel', 'status', 'createdAt'])
+        ->assertJsonStructure(['id', 'ownerId', 'stationName', 'latitude', 'longitude', 'sensorModel', 'status', 'climateProvider', 'createdAt'])
         ->assertJsonFragment([
-            'stationName' => 'Estación Central',
-            'status'      => 'active',
+            'stationName'     => 'Estación Central',
+            'status'          => 'active',
+            'climateProvider' => 'openweather',
         ]);
 });
 
@@ -72,6 +73,32 @@ test('creates a station with explicit inactive status', function () {
     ])->assertStatus(201)->assertJsonFragment(['status' => 'inactive']);
 });
 
+test('creates a station with an explicit climate_provider', function () {
+    $ownerId = createUser($this);
+
+    $this->postJson('/api/stations', [
+        'owner_id'         => $ownerId,
+        'station_name'     => 'Estación OWM',
+        'latitude'         => 0.0,
+        'longitude'        => 0.0,
+        'sensor_model'     => 'Sensor X',
+        'climate_provider' => 'openweather',
+    ])->assertStatus(201)->assertJsonFragment(['climateProvider' => 'openweather']);
+});
+
+test('returns 422 when climate_provider is not a known provider', function () {
+    $ownerId = createUser($this);
+
+    $this->postJson('/api/stations', [
+        'owner_id'         => $ownerId,
+        'station_name'     => 'Estación Inválida',
+        'latitude'         => 0.0,
+        'longitude'        => 0.0,
+        'sensor_model'     => 'Sensor X',
+        'climate_provider' => 'accuweather',
+    ])->assertStatus(422)->assertJsonValidationErrors(['climate_provider']);
+});
+
 // -------------------------------------------------------------------------
 // GET /api/stations/{id}
 // -------------------------------------------------------------------------
@@ -89,8 +116,11 @@ test('returns a station by id', function () {
 
     $this->getJson("/api/stations/{$created['id']}")
         ->assertStatus(200)
-        ->assertJsonStructure(['id', 'ownerId', 'stationName', 'latitude', 'longitude', 'sensorModel', 'status', 'createdAt'])
-        ->assertJsonFragment(['stationName' => 'Estación Central']);
+        ->assertJsonStructure(['id', 'ownerId', 'stationName', 'latitude', 'longitude', 'sensorModel', 'status', 'climateProvider', 'createdAt'])
+        ->assertJsonFragment([
+            'stationName'     => 'Estación Central',
+            'climateProvider' => 'openweather',
+        ]);
 });
 
 test('returns 404 when station does not exist', function () {

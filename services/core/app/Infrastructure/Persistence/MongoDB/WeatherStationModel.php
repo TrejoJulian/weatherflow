@@ -16,6 +16,7 @@ final class WeatherStationModel extends BaseMongoModel
         'location',
         'sensor_model',
         'status',
+        'climate_provider',
         'created_at',
     ];
 
