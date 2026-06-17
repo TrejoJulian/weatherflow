@@ -62,6 +62,7 @@ function renderStations(el, list) {
               <td class="dim mono">${shortId(s.ownerId)}</td>
               <td>
                 <div class="actions">
+                  <button class="btn btn-sm btn-secondary" onclick='openStationReportsModal(${JSON.stringify(s)})'>Reports</button>
                   <button class="btn btn-sm btn-secondary" onclick='openEditStationModal(${JSON.stringify(s)})'>Edit</button>
                   <button class="btn btn-sm btn-danger"    onclick="deleteStation('${s.id}')">Delete</button>
                 </div>

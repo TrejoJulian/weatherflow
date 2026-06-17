@@ -4,6 +4,7 @@ import { state } from './state.js';
 import { loadMeasurements, currentFilters, openNewMeasurementModal } from './measurements.js';
 import { loadStations, openNewStationModal, currentStationFilters } from './stations.js';
 import { loadUsers, openNewUserModal } from './users.js';
+import './reports.js';
 
 async function preload() {
   try {
