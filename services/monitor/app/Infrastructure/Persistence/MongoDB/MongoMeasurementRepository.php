@@ -77,6 +77,40 @@ final class MongoMeasurementRepository implements MeasurementRepository
         MeasurementModel::destroy($id->value());
     }
 
+    public function averageTemperature(
+        StationId $stationId,
+        DateTimeImmutable $from,
+        DateTimeImmutable $to,
+    ): ?float {
+        $results = MeasurementModel::raw(function ($collection) use ($stationId, $from, $to) {
+            return $collection->aggregate([
+                [
+                    '$match' => [
+                        'station_id'  => $stationId->value(),
+                        'reported_at' => [
+                            '$gte' => $from->format(DateTimeInterface::ATOM),
+                            '$lte' => $to->format(DateTimeInterface::ATOM),
+                        ],
+                    ],
+                ],
+                [
+                    '$group' => [
+                        '_id'     => null,
+                        'average' => ['$avg' => '$temperature'],
+                    ],
+                ],
+            ]);
+        });
+
+        $result = $results->first();
+
+        if ($result === null) {
+            return null;
+        }
+
+        return (float) $result['average'];
+    }
+
     private function toDomain(MeasurementModel $model): Measurement
     {
         return Measurement::create(

@@ -8,6 +8,7 @@ use App\Domain\Measurement\Entities\Measurement;
 use App\Domain\Measurement\ValueObjects\MeasurementFilters;
 use App\Domain\Measurement\ValueObjects\MeasurementId;
 use App\Domain\WeatherStation\ValueObjects\StationId;
+use DateTimeImmutable;
 
 interface MeasurementRepository
 {
@@ -22,4 +23,10 @@ interface MeasurementRepository
     public function updateStationNameByStationId(StationId $stationId, string $newName): void;
 
     public function delete(MeasurementId $id): void;
+
+    public function averageTemperature(
+        StationId $stationId,
+        DateTimeImmutable $from,
+        DateTimeImmutable $to,
+    ): ?float;
 }

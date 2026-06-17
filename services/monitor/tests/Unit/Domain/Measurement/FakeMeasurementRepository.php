@@ -9,6 +9,7 @@ use App\Domain\Measurement\Repositories\MeasurementRepository;
 use App\Domain\Measurement\ValueObjects\MeasurementFilters;
 use App\Domain\Measurement\ValueObjects\MeasurementId;
 use App\Domain\WeatherStation\ValueObjects\StationId;
+use DateTimeImmutable;
 use DateTimeInterface;
 
 final class FakeMeasurementRepository implements MeasurementRepository
@@ -54,6 +55,37 @@ final class FakeMeasurementRepository implements MeasurementRepository
     public function delete(MeasurementId $id): void
     {
         unset($this->measurements[$id->value()]);
+    }
+
+    public function averageTemperature(
+        StationId $stationId,
+        DateTimeImmutable $from,
+        DateTimeImmutable $to,
+    ): ?float {
+        $fromAtom = $from->format(DateTimeInterface::ATOM);
+        $toAtom   = $to->format(DateTimeInterface::ATOM);
+
+        $temperatures = array_map(
+            fn(Measurement $measurement) => $measurement->temperature()->value(),
+            array_filter(
+                $this->measurements,
+                function (Measurement $measurement) use ($stationId, $fromAtom, $toAtom): bool {
+                    if ($measurement->stationId()->value() !== $stationId->value()) {
+                        return false;
+                    }
+
+                    $reportedAt = $measurement->reportedAt()->format(DateTimeInterface::ATOM);
+
+                    return $reportedAt >= $fromAtom && $reportedAt <= $toAtom;
+                },
+            ),
+        );
+
+        if ($temperatures === []) {
+            return null;
+        }
+
+        return array_sum($temperatures) / count($temperatures);
     }
 
     public function seed(Measurement ...$measurements): void
