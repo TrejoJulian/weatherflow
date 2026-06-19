@@ -2,6 +2,16 @@ import { CORE, apiGet, apiPost, apiPut, apiDel } from './api.js';
 import { toast, openModal, closeModal, shortId, fmtDate } from './ui.js';
 import { state, userOptions } from './state.js';
 
+const CLIMATE_PROVIDERS = [
+  { value: 'openweather', label: 'OpenWeather' },
+];
+
+function climateProviderOptions(selected = 'openweather') {
+  return CLIMATE_PROVIDERS
+    .map(p => `<option value="${p.value}" ${p.value === selected ? 'selected' : ''}>${p.label}</option>`)
+    .join('');
+}
+
 export async function loadStations(filters = {}) {
   const el = document.getElementById('stations-list');
   el.innerHTML = '<div class="loading">Loading…</div>';
@@ -107,6 +117,12 @@ export function openNewStationModal() {
         <label>Sensor Model</label>
         <input type="text" name="sensor_model" required placeholder="Davis Vantage Pro2">
       </div>
+      <div class="form-group">
+        <label>Climate Provider</label>
+        <select name="climate_provider" required>
+          ${climateProviderOptions()}
+        </select>
+      </div>
       <div class="form-actions">
         <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
         <button type="submit" class="btn btn-primary">Create</button>
@@ -115,11 +131,12 @@ export function openNewStationModal() {
   `, async (fd) => {
     try {
       await apiPost(`${CORE}/stations`, {
-        owner_id:     fd.get('owner_id'),
-        station_name: fd.get('station_name'),
-        latitude:     parseFloat(fd.get('latitude')),
-        longitude:    parseFloat(fd.get('longitude')),
-        sensor_model: fd.get('sensor_model'),
+        owner_id:         fd.get('owner_id'),
+        station_name:     fd.get('station_name'),
+        latitude:         parseFloat(fd.get('latitude')),
+        longitude:        parseFloat(fd.get('longitude')),
+        sensor_model:     fd.get('sensor_model'),
+        climate_provider: fd.get('climate_provider'),
       });
       toast('Station created');
       closeModal();
@@ -170,6 +187,12 @@ export function openEditStationModal(station) {
           </select>
         </div>
       </div>
+      <div class="form-group">
+        <label>Climate Provider</label>
+        <select name="climate_provider" required>
+          ${climateProviderOptions(station.climateProvider)}
+        </select>
+      </div>
       <div class="form-actions">
         <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
         <button type="submit" class="btn btn-primary">Save</button>
@@ -178,12 +201,13 @@ export function openEditStationModal(station) {
   `, async (fd) => {
     try {
       await apiPut(`${CORE}/stations/${station.id}`, {
-        owner_id:     fd.get('owner_id'),
-        station_name: fd.get('station_name'),
-        latitude:     parseFloat(fd.get('latitude')),
-        longitude:    parseFloat(fd.get('longitude')),
-        sensor_model: fd.get('sensor_model'),
-        status:       fd.get('status'),
+        owner_id:         fd.get('owner_id'),
+        station_name:     fd.get('station_name'),
+        latitude:         parseFloat(fd.get('latitude')),
+        longitude:        parseFloat(fd.get('longitude')),
+        sensor_model:     fd.get('sensor_model'),
+        status:           fd.get('status'),
+        climate_provider: fd.get('climate_provider'),
       });
       toast('Station updated');
       closeModal();
