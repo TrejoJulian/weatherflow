@@ -89,8 +89,8 @@ export function currentFilters() {
   const alertSel = document.getElementById('f-alert-type').value;
   return {
     stationName: document.getElementById('f-station-name').value.trim(),
-    dateFrom:    isoOrEmpty(document.getElementById('f-date-from').value),
-    dateTo:      isoOrEmpty(document.getElementById('f-date-to').value),
+    dateFrom:    toAtomUtc(document.getElementById('f-date-from').value),
+    dateTo:      toAtomUtc(document.getElementById('f-date-to').value),
     tempMin:     document.getElementById('f-temp-min').value,
     tempMax:     document.getElementById('f-temp-max').value,
     humMin:      document.getElementById('f-humidity-min').value,
@@ -102,8 +102,9 @@ export function currentFilters() {
   };
 }
 
-function isoOrEmpty(localVal) {
-  return localVal ? new Date(localVal).toISOString() : '';
+function toAtomUtc(localVal) {
+  if (!localVal) return '';
+  return new Date(localVal).toISOString().replace(/\.\d{3}Z$/, '+00:00');
 }
 
 export function openNewMeasurementModal() {
