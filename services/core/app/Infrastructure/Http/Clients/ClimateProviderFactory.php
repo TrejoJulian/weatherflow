@@ -10,7 +10,7 @@ use App\Domain\WeatherStation\Enums\ClimateProviderType;
 final class ClimateProviderFactory
 {
     public function __construct(
-        private readonly OpenWeatherProvider $openWeatherProvider,
+        private readonly ClimateProvider $openWeatherProvider,
     ) {}
 
     public function for(ClimateProviderType $type): ClimateProvider
