@@ -13,8 +13,6 @@ use RuntimeException;
 
 final class OpenWeatherProvider implements ClimateProvider
 {
-    private const TIMEOUT_SECONDS = 10;
-
     public function fetchCurrentReading(Location $location): ClimateReading
     {
         $apiKey = config('services.openweather.key');
@@ -23,7 +21,8 @@ final class OpenWeatherProvider implements ClimateProvider
         }
 
         $response = Http::baseUrl(config('services.openweather.base_url'))
-            ->timeout(self::TIMEOUT_SECONDS)
+            ->connectTimeout(config('services.resilience.owm_connect_timeout'))
+            ->timeout(config('services.resilience.owm_timeout'))
             ->get('/weather', [
                 'lat'   => $location->latitude(),
                 'lon'   => $location->longitude(),
