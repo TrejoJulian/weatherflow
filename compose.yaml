@@ -28,6 +28,7 @@ services:
       - weatherflow
     depends_on:
       - mongodb_core
+      - redis
 
   monitor:
     container_name: weatherflow-monitor

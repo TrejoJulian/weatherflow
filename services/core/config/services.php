@@ -36,10 +36,21 @@ return [
     ],
 
     'rabbitmq' => [
-        'host'     => env('RABBITMQ_HOST', 'rabbitmq'),
-        'port'     => env('RABBITMQ_PORT', 5672),
-        'user'     => env('RABBITMQ_USER', 'weatherflow'),
-        'password' => env('RABBITMQ_PASSWORD', 'secret'),
+        'host'                => env('RABBITMQ_HOST', 'rabbitmq'),
+        'port'                => env('RABBITMQ_PORT', 5672),
+        'user'                => env('RABBITMQ_USER', 'weatherflow'),
+        'password'            => env('RABBITMQ_PASSWORD', 'secret'),
+        'connection_timeout'  => (float) env('RABBITMQ_CONNECTION_TIMEOUT', 3.0),
+        'read_write_timeout'  => (float) env('RABBITMQ_READ_WRITE_TIMEOUT', 3.0),
+    ],
+
+    'resilience' => [
+        'owm_connect_timeout' => (int) env('OWM_CONNECT_TIMEOUT', 3),
+        'owm_timeout'         => (int) env('OWM_TIMEOUT', 8),
+        'owm_retries'         => (int) env('OWM_RETRIES', 3),
+        'owm_cache_ttl'       => (int) env('OWM_CACHE_TTL', 600),
+        'breaker_threshold'   => (int) env('OWM_BREAKER_THRESHOLD', 5),
+        'breaker_reset'       => (int) env('OWM_BREAKER_RESET', 30),
     ],
 
     'queues' => [
