@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Application\Contracts\EventPublisher;
+use App\Application\Contracts\LastReadingCache;
 use App\Application\IngestMeasurements\IngestMeasurementsHandler;
 use App\Application\WeatherStation\UpdateStation\UpdateStationHandler;
 use App\Domain\User\Repositories\UserRepository;
 use App\Domain\WeatherStation\Repositories\WeatherStationRepository;
+use App\Infrastructure\Cache\RedisLastReadingCache;
 use App\Infrastructure\Http\Clients\ClimateProviderFactory;
 use App\Infrastructure\Http\Clients\OpenWeatherProvider;
 use App\Infrastructure\Messaging\RabbitMQEventPublisher;
@@ -23,6 +25,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(UserRepository::class, MongoUserRepository::class);
         $this->app->bind(WeatherStationRepository::class, MongoWeatherStationRepository::class);
         $this->app->bind(EventPublisher::class, RabbitMQEventPublisher::class);
+        $this->app->singleton(LastReadingCache::class, RedisLastReadingCache::class);
 
         $this->app->bind(UpdateStationHandler::class, function ($app) {
             return new UpdateStationHandler(
@@ -45,6 +48,7 @@ class AppServiceProvider extends ServiceProvider
                 $app->make(WeatherStationRepository::class),
                 $app->make(ClimateProviderFactory::class),
                 $app->make(EventPublisher::class),
+                $app->make(LastReadingCache::class),
                 config('services.queues.raw_measurements'),
             );
         });

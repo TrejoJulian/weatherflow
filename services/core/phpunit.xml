@@ -33,5 +33,6 @@
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <env name="MONGODB_DATABASE" value="weatherflow_test"/>
+        <env name="REDIS_DB" value="15"/>
     </php>
 </phpunit>
