@@ -1,0 +1,124 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Application\IngestMeasurements\IngestMeasurementsHandler;
+use App\Domain\User\ValueObjects\UserId;
+use App\Domain\WeatherStation\Clients\ClimateProvider;
+use App\Domain\WeatherStation\Entities\WeatherStation;
+use App\Domain\WeatherStation\ValueObjects\ClimateReading;
+use App\Domain\WeatherStation\ValueObjects\Location;
+use App\Domain\WeatherStation\ValueObjects\StationId;
+use App\Infrastructure\Http\Clients\ClimateProviderFactory;
+use Tests\TestCase;
+use Tests\Unit\Domain\WeatherStation\FakeClimateProvider;
+use Tests\Unit\Domain\WeatherStation\FakeWeatherStationRepository;
+use Tests\Unit\Infrastructure\Cache\FakeLastReadingCache;
+use Tests\Unit\Infrastructure\Cache\FaultyLastReadingCache;
+use Tests\Unit\Infrastructure\Messaging\FakeEventPublisher;
+
+uses(TestCase::class);
+
+test('caches the reading and publishes the measurement on a successful tick', function () {
+    $repository = new FakeWeatherStationRepository;
+    $station = WeatherStation::create(
+        StationId::generate(),
+        UserId::fromString('00000000-0000-4000-a000-000000000001'),
+        'Estación Central',
+        new Location(-34.9, -58.3),
+        'Sensor 1',
+    );
+    $repository->seed($station);
+
+    $reading = new ClimateReading(21.4, 70.0, 1012.0, new DateTimeImmutable);
+    $factory = new ClimateProviderFactory(new FakeClimateProvider($reading));
+    $publisher = new FakeEventPublisher;
+    $cache = new FakeLastReadingCache;
+
+    (new IngestMeasurementsHandler($repository, $factory, $publisher, $cache, 'raw-measurements'))->handle();
+
+    expect($cache->wasPut($station->id()))->toBeTrue()
+        ->and($cache->get($station->id()))->toBe($reading)
+        ->and($publisher->wasPublishedTo('raw-measurements'))->toBeTrue();
+});
+
+test('a cache write failure does not abort ingestion or publishing', function () {
+    $repository = new FakeWeatherStationRepository;
+    $station = WeatherStation::create(
+        StationId::generate(),
+        UserId::fromString('00000000-0000-4000-a000-000000000001'),
+        'Estación Central',
+        new Location(-34.9, -58.3),
+        'Sensor 1',
+    );
+    $repository->seed($station);
+
+    $reading = new ClimateReading(21.4, 70.0, 1012.0, new DateTimeImmutable);
+    $factory = new ClimateProviderFactory(new FakeClimateProvider($reading));
+    $publisher = new FakeEventPublisher;
+
+    (new IngestMeasurementsHandler($repository, $factory, $publisher, new FaultyLastReadingCache, 'raw-measurements'))->handle();
+
+    expect($publisher->wasPublishedTo('raw-measurements'))->toBeTrue();
+});
+
+test('does not cache or publish when the provider fails', function () {
+    $repository = new FakeWeatherStationRepository;
+    $station = WeatherStation::create(
+        StationId::generate(),
+        UserId::fromString('00000000-0000-4000-a000-000000000001'),
+        'Estación Central',
+        new Location(-34.9, -58.3),
+        'Sensor 1',
+    );
+    $repository->seed($station);
+
+    $failingProvider = new class implements ClimateProvider
+    {
+        public function fetchCurrentReading(Location $location): ClimateReading
+        {
+            throw new RuntimeException('OWM is down');
+        }
+    };
+    $factory = new ClimateProviderFactory($failingProvider);
+    $publisher = new FakeEventPublisher;
+    $cache = new FakeLastReadingCache;
+
+    (new IngestMeasurementsHandler($repository, $factory, $publisher, $cache, 'raw-measurements'))->handle();
+
+    expect($cache->getPutCount())->toBe(0)
+        ->and($publisher->wasPublishedTo('raw-measurements'))->toBeFalse();
+});
+
+test('a provider failure on one station does not stop caching and publishing the others', function () {
+    $repository = new FakeWeatherStationRepository;
+    $ownerId = UserId::fromString('00000000-0000-4000-a000-000000000001');
+    $failingStation = WeatherStation::create(StationId::generate(), $ownerId, 'Falla', new Location(-1.0, 0.0), 'Sensor 1');
+    $workingStation = WeatherStation::create(StationId::generate(), $ownerId, 'Anda', new Location(0.0, 0.0), 'Sensor 2');
+    $repository->seed($failingStation, $workingStation);
+
+    $reading = new ClimateReading(21.4, 70.0, 1012.0, new DateTimeImmutable);
+    $provider = new class($reading) implements ClimateProvider
+    {
+        public function __construct(private readonly ClimateReading $reading) {}
+
+        public function fetchCurrentReading(Location $location): ClimateReading
+        {
+            if ($location->latitude() === -1.0) {
+                throw new RuntimeException('OWM is down for this station');
+            }
+
+            return $this->reading;
+        }
+    };
+    $factory = new ClimateProviderFactory($provider);
+    $publisher = new FakeEventPublisher;
+    $cache = new FakeLastReadingCache;
+
+    (new IngestMeasurementsHandler($repository, $factory, $publisher, $cache, 'raw-measurements'))->handle();
+
+    expect($cache->wasPut($workingStation->id()))->toBeTrue()
+        ->and($cache->wasPut($failingStation->id()))->toBeFalse()
+        ->and($cache->getPutCount())->toBe(1)
+        ->and($publisher->getPublishedTo('raw-measurements'))->toHaveCount(1);
+});
