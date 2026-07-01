@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use Ackintosh\Ganesha;
+use Ackintosh\Ganesha\Builder;
+use Ackintosh\Ganesha\Storage\Adapter\Redis as GaneshaRedisAdapter;
 use App\Application\Contracts\EventPublisher;
 use App\Application\Contracts\LastReadingCache;
 use App\Application\IngestMeasurements\IngestMeasurementsHandler;
@@ -16,6 +19,7 @@ use App\Infrastructure\Http\Clients\OpenWeatherProvider;
 use App\Infrastructure\Messaging\RabbitMQEventPublisher;
 use App\Infrastructure\Persistence\MongoDB\MongoUserRepository;
 use App\Infrastructure\Persistence\MongoDB\MongoWeatherStationRepository;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -36,7 +40,23 @@ class AppServiceProvider extends ServiceProvider
             );
         });
 
-        $this->app->singleton(OpenWeatherProvider::class);
+        $this->app->singleton(Ganesha::class, function () {
+            $breakerThreshold = config('services.resilience.breaker_threshold');
+            $breakerReset = config('services.resilience.breaker_reset');
+
+            return Builder::withRateStrategy()
+                ->adapter(new GaneshaRedisAdapter(Redis::connection()->client()))
+                ->failureRateThreshold(100)
+                ->minimumRequests($breakerThreshold)
+                ->intervalToHalfOpen($breakerReset)
+                ->timeWindow(max($breakerReset * 2, 60))
+                ->build();
+        });
+
+        $this->app->singleton(OpenWeatherProvider::class, function ($app) {
+            return new OpenWeatherProvider($app->make(Ganesha::class));
+        });
+
         $this->app->singleton(ClimateProviderFactory::class, function ($app) {
             return new ClimateProviderFactory(
                 $app->make(OpenWeatherProvider::class),

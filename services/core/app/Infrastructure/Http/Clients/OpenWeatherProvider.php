@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Http\Clients;
 
+use Ackintosh\Ganesha;
 use App\Domain\WeatherStation\Clients\ClimateProvider;
+use App\Domain\WeatherStation\Exceptions\ClimateProviderUnavailableException;
 use App\Domain\WeatherStation\ValueObjects\ClimateReading;
 use App\Domain\WeatherStation\ValueObjects\Location;
 use DateTimeImmutable;
@@ -18,7 +20,33 @@ use Throwable;
 
 final class OpenWeatherProvider implements ClimateProvider
 {
+    private const SERVICE = 'openweather';
+
+    public function __construct(
+        private readonly Ganesha $ganesha,
+    ) {}
+
     public function fetchCurrentReading(Location $location): ClimateReading
+    {
+        if (! $this->ganesha->isAvailable(self::SERVICE)) {
+            throw new ClimateProviderUnavailableException;
+        }
+
+        try {
+            $reading = $this->fetchFromApi($location);
+            $this->ganesha->success(self::SERVICE);
+
+            return $reading;
+        } catch (Throwable $exception) {
+            if ($this->isRetryable($exception)) {
+                $this->ganesha->failure(self::SERVICE);
+            }
+
+            throw $exception;
+        }
+    }
+
+    private function fetchFromApi(Location $location): ClimateReading
     {
         $apiKey = config('services.openweather.key');
         if (empty($apiKey)) {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Domain\WeatherStation\ValueObjects\Location;
 use App\Infrastructure\Http\Clients\OpenWeatherProvider;
 use Illuminate\Http\Client\ConnectionException;
+use Tests\Unit\Infrastructure\Resilience\GaneshaTestDoubles;
 
 const SOME_LOCATION = [-34.9205, -58.3838];
 
@@ -23,7 +24,7 @@ test('connect timeout aborts fast when the host is unreachable, without waiting 
 
     $start = microtime(true);
 
-    expect(fn () => (new OpenWeatherProvider())->fetchCurrentReading(new Location(...SOME_LOCATION)))
+    expect(fn () => (new OpenWeatherProvider(GaneshaTestDoubles::alwaysAvailable()))->fetchCurrentReading(new Location(...SOME_LOCATION)))
         ->toThrow(ConnectionException::class);
 
     $elapsed = microtime(true) - $start;
@@ -57,7 +58,7 @@ test('response timeout aborts a slow server even though the connection opened fi
     try {
         $start = microtime(true);
 
-        expect(fn () => (new OpenWeatherProvider())->fetchCurrentReading(new Location(...SOME_LOCATION)))
+        expect(fn () => (new OpenWeatherProvider(GaneshaTestDoubles::alwaysAvailable()))->fetchCurrentReading(new Location(...SOME_LOCATION)))
             ->toThrow(ConnectionException::class);
 
         $elapsed = microtime(true) - $start;

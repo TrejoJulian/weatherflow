@@ -33,6 +33,8 @@
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <env name="MONGODB_DATABASE" value="weatherflow_test"/>
+        <env name="REDIS_HOST" value="redis"/>
+        <env name="REDIS_PORT" value="6379"/>
         <env name="REDIS_DB" value="15"/>
     </php>
 </phpunit>
