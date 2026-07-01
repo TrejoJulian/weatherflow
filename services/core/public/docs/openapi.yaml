@@ -382,9 +382,22 @@ paths:
       tags: [Reports]
       summary: Temperatura actual de una estación
       description: >
-        Consulta en vivo la temperatura actual de la estación llamando al proveedor
-        climático (OpenWeatherMap) en el momento de la request, usando la ubicación
-        de la estación. No lee de la base de mediciones.
+        Devuelve la temperatura actual de la estación aplicando una cadena de
+        resiliencia sobre el proveedor climático (OpenWeatherMap):
+
+        1. Fast-path: si hay una lectura reciente en caché (dentro del TTL) se
+        devuelve sin llamar a OWM (`source: cache`, `stale: false`).
+
+        2. Camino normal: si no hay caché fresca, se consulta OWM en vivo
+        (`source: live`, `stale: false`).
+
+        3. Camino degradado: si OWM no responde o el circuit breaker está abierto,
+        se devuelve la última lectura conocida ignorando el TTL, marcada como
+        obsoleta (`source: fallback-cache`, `stale: true`).
+
+        4. Si no existe ninguna lectura previa en caché, responde 503.
+
+        No lee de la base de mediciones.
       operationId: getCurrentTemperature
       parameters:
         - name: stationId
@@ -413,13 +426,51 @@ paths:
                   reported_at:
                     type: string
                     format: date-time
-                example:
-                  station_id: "00000000-0000-4000-8000-000000000101"
-                  station_name: "Universidad Nacional de Quilmes"
-                  temperature: 21.4
-                  reported_at: "2026-06-16T15:00:00+00:00"
+                  stale:
+                    type: boolean
+                    description: >
+                      Indica si el dato proviene de la caché de fallback (lectura
+                      obsoleta servida porque OWM falló o el breaker está abierto).
+                  source:
+                    type: string
+                    enum: [live, cache, fallback-cache]
+                    description: >
+                      Origen del dato: `live` (OWM en vivo), `cache` (caché fresca
+                      dentro del TTL) o `fallback-cache` (última lectura conocida).
+                examples:
+                  live:
+                    summary: Lectura en vivo desde OWM
+                    value:
+                      station_id: "00000000-0000-4000-8000-000000000101"
+                      station_name: "Universidad Nacional de Quilmes"
+                      temperature: 21.4
+                      reported_at: "2026-06-16T15:00:00+00:00"
+                      stale: false
+                      source: live
+                  fallback:
+                    summary: Fallback degradado (OWM caído o breaker abierto)
+                    value:
+                      station_id: "00000000-0000-4000-8000-000000000101"
+                      station_name: "Universidad Nacional de Quilmes"
+                      temperature: 20.8
+                      reported_at: "2026-06-16T14:50:00+00:00"
+                      stale: true
+                      source: fallback-cache
         '404':
           $ref: '#/components/responses/NotFound'
+        '503':
+          description: >
+            El proveedor climático no está disponible y no hay ninguna lectura
+            previa en caché para servir como fallback.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example:
+                message: "No cached reading available for station '00000000-0000-4000-8000-000000000101' and the climate provider is unavailable."
 
 # =============================================================================
 # COMPONENTS

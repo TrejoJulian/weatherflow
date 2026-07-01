@@ -20,7 +20,7 @@ final class FaultyLastReadingCache implements LastReadingCache
         throw new RuntimeException('Redis is unavailable');
     }
 
-    public function get(StationId $stationId): ?ClimateReading
+    public function get(StationId $stationId, bool $ignoreTtl = false): ?ClimateReading
     {
         return null;
     }

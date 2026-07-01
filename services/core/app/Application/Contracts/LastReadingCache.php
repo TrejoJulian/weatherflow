@@ -11,5 +11,5 @@ interface LastReadingCache
 {
     public function put(StationId $stationId, ClimateReading $reading): void;
 
-    public function get(StationId $stationId): ?ClimateReading;
+    public function get(StationId $stationId, bool $ignoreTtl = false): ?ClimateReading;
 }

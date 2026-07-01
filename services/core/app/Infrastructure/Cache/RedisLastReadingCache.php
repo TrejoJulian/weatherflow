@@ -15,16 +15,22 @@ final class RedisLastReadingCache implements LastReadingCache
 {
     public function put(StationId $stationId, ClimateReading $reading): void
     {
+        $payload = $this->serialize($reading);
+
         Redis::setex(
-            $this->keyFor($stationId),
+            $this->freshKeyFor($stationId),
             config('services.resilience.owm_cache_ttl'),
-            $this->serialize($reading),
+            $payload,
         );
+
+        Redis::set($this->fallbackKeyFor($stationId), $payload);
     }
 
-    public function get(StationId $stationId): ?ClimateReading
+    public function get(StationId $stationId, bool $ignoreTtl = false): ?ClimateReading
     {
-        $payload = Redis::get($this->keyFor($stationId));
+        $key = $ignoreTtl ? $this->fallbackKeyFor($stationId) : $this->freshKeyFor($stationId);
+
+        $payload = Redis::get($key);
 
         // Missing keys come back as false (phpredis) or null (predis).
         if (! is_string($payload)) {
@@ -34,9 +40,14 @@ final class RedisLastReadingCache implements LastReadingCache
         return $this->deserialize($payload);
     }
 
-    private function keyFor(StationId $stationId): string
+    private function freshKeyFor(StationId $stationId): string
     {
         return "owm:last:{$stationId->value()}";
+    }
+
+    private function fallbackKeyFor(StationId $stationId): string
+    {
+        return "owm:fallback:{$stationId->value()}";
     }
 
     private function serialize(ClimateReading $reading): string
