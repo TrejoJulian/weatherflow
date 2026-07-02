@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Application\Contracts\EventPublisher;
 use App\Application\IngestMeasurements\IngestMeasurementsHandler;
 use App\Domain\User\ValueObjects\UserId;
 use App\Domain\WeatherStation\Clients\ClimateProvider;
@@ -121,4 +122,40 @@ test('a provider failure on one station does not stop caching and publishing the
         ->and($cache->wasPut($failingStation->id()))->toBeFalse()
         ->and($cache->getPutCount())->toBe(1)
         ->and($publisher->getPublishedTo('raw-measurements'))->toHaveCount(1);
+});
+
+test('a publish failure on one station does not stop publishing the others', function () {
+    $repository = new FakeWeatherStationRepository;
+    $ownerId = UserId::fromString('00000000-0000-4000-a000-000000000001');
+    $unreachableStation = WeatherStation::create(StationId::generate(), $ownerId, 'Broker caído', new Location(-34.9, -58.3), 'Sensor 1');
+    $workingStation = WeatherStation::create(StationId::generate(), $ownerId, 'Anda', new Location(-31.4, -64.2), 'Sensor 2');
+    $repository->seed($unreachableStation, $workingStation);
+
+    $reading = new ClimateReading(21.4, 70.0, 1012.0, new DateTimeImmutable);
+    $factory = new ClimateProviderFactory(new FakeClimateProvider($reading));
+    $cache = new FakeLastReadingCache;
+
+    // Simulates RabbitMQ being unreachable for one station: publishing that
+    // measurement throws (as AMQPStreamConnection would after connection_timeout).
+    $publisher = new class($unreachableStation->id()->value()) implements EventPublisher
+    {
+        /** @var array<array{queue: string, payload: array}> */
+        public array $published = [];
+
+        public function __construct(private readonly string $failingStationId) {}
+
+        public function publish(string $queue, array $payload): void
+        {
+            if (($payload['station_id'] ?? null) === $this->failingStationId) {
+                throw new RuntimeException('RabbitMQ is unreachable');
+            }
+
+            $this->published[] = ['queue' => $queue, 'payload' => $payload];
+        }
+    };
+
+    (new IngestMeasurementsHandler($repository, $factory, $publisher, $cache, 'raw-measurements'))->handle();
+
+    expect($publisher->published)->toHaveCount(1)
+        ->and($publisher->published[0]['payload']['station_id'])->toBe($workingStation->id()->value());
 });
