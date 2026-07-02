@@ -13,10 +13,12 @@ final class RabbitMQEventPublisher implements EventPublisher
     public function publish(string $queue, array $payload): void
     {
         $connection = new AMQPStreamConnection(
-            host:     config('services.rabbitmq.host'),
-            port:     config('services.rabbitmq.port'),
-            user:     config('services.rabbitmq.user'),
-            password: config('services.rabbitmq.password'),
+            host:               config('services.rabbitmq.host'),
+            port:               config('services.rabbitmq.port'),
+            user:               config('services.rabbitmq.user'),
+            password:           config('services.rabbitmq.password'),
+            connection_timeout: config('services.rabbitmq.connection_timeout'),
+            read_write_timeout: config('services.rabbitmq.read_write_timeout'),
         );
 
         $channel = $connection->channel();
