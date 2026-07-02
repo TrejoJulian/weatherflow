@@ -34,11 +34,6 @@ final class FakeLastReadingCache implements LastReadingCache
         return $this->readings[$stationId->value()] ?? null;
     }
 
-    public function expireFresh(StationId $stationId): void
-    {
-        unset($this->readings[$stationId->value()]);
-    }
-
     public function wasPut(StationId $stationId): bool
     {
         return isset($this->readings[$stationId->value()]);

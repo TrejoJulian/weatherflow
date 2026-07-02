@@ -31,11 +31,6 @@ final class GetCurrentTemperatureHandler
             throw new StationNotFoundException($query->stationId);
         }
 
-        $fresh = $this->lastReadingCache->get($stationId);
-        if ($fresh !== null) {
-            return $this->buildResponse($station, $fresh, stale: false, source: 'cache');
-        }
-
         try {
             $reading = $this->providerFactory
                 ->for($station->climateProvider())
