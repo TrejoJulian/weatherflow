@@ -16,10 +16,12 @@ final class CurrentTemperatureResponse implements JsonSerializable
         public readonly string            $stationName,
         public readonly float             $temperature,
         public readonly DateTimeImmutable $reportedAt,
+        public readonly bool              $stale,
+        public readonly string            $source,
     ) {}
 
     /**
-     * @return array{station_id: string, station_name: string, temperature: float, reported_at: string}
+     * @return array{station_id: string, station_name: string, temperature: float, reported_at: string, stale: bool, source: string}
      */
     public function jsonSerialize(): array
     {
@@ -30,6 +32,8 @@ final class CurrentTemperatureResponse implements JsonSerializable
             'reported_at'  => $this->reportedAt
                 ->setTimezone(new DateTimeZone('UTC'))
                 ->format(DateTimeInterface::ATOM),
+            'stale'        => $this->stale,
+            'source'       => $this->source,
         ];
     }
 }

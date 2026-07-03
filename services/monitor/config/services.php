@@ -40,10 +40,16 @@ return [
     ],
 
     'rabbitmq' => [
-        'host'     => env('RABBITMQ_HOST', 'rabbitmq'),
-        'port'     => env('RABBITMQ_PORT', 5672),
-        'user'     => env('RABBITMQ_USER', 'weatherflow'),
-        'password' => env('RABBITMQ_PASSWORD', 'secret'),
+        'host'                => env('RABBITMQ_HOST', 'rabbitmq'),
+        'port'                => env('RABBITMQ_PORT', 5672),
+        'user'                => env('RABBITMQ_USER', 'weatherflow'),
+        'password'            => env('RABBITMQ_PASSWORD', 'secret'),
+        'connection_timeout'  => (float) env('RABBITMQ_CONNECTION_TIMEOUT', 3.0),
+        'read_write_timeout'  => (float) env('RABBITMQ_READ_WRITE_TIMEOUT', 3.0),
+        'heartbeat'                   => (int) env('RABBITMQ_HEARTBEAT', 30),
+        'consumer_read_write_timeout' => (float) env('RABBITMQ_CONSUMER_READ_WRITE_TIMEOUT', 60.0),
+        'max_retries' => (int) env('RABBITMQ_MAX_RETRIES', 5),
+        'retry_delay' => (int) env('RABBITMQ_RETRY_DELAY', 3),
     ],
 
     'queues' => [

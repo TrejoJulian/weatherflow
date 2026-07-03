@@ -6,6 +6,7 @@ namespace App\Infrastructure\Http\Controllers;
 
 use App\Application\Reports\GetCurrentTemperature\GetCurrentTemperatureHandler;
 use App\Application\Reports\GetCurrentTemperature\GetCurrentTemperatureQuery;
+use App\Domain\WeatherStation\Exceptions\NoCachedReadingAvailableException;
 use App\Domain\WeatherStation\Exceptions\StationNotFoundException;
 use Illuminate\Http\JsonResponse;
 
@@ -23,6 +24,8 @@ final class ReportController
             );
         } catch (StationNotFoundException $e) {
             return response()->json(['message' => $e->getMessage()], 404);
+        } catch (NoCachedReadingAvailableException $e) {
+            return response()->json(['message' => $e->getMessage()], 503);
         }
     }
 }

@@ -53,6 +53,23 @@ test('sets a TTL taken from config on the cached reading', function () {
         ->and($ttl)->toBeLessThanOrEqual(600);
 });
 
+test('serves the fallback key ignoring TTL after the fresh key expires', function () {
+    $cache = app(LastReadingCache::class);
+    $stationId = StationId::generate();
+    $reading = new ClimateReading(18.5, 65.0, 1005.0, new DateTimeImmutable('2026-06-29T14:50:00Z'));
+
+    $cache->put($stationId, $reading);
+
+    Redis::connection()->del("owm:last:{$stationId->value()}");
+
+    expect($cache->get($stationId))->toBeNull();
+
+    $fallback = $cache->get($stationId, ignoreTtl: true);
+
+    expect($fallback)->toBeInstanceOf(ClimateReading::class)
+        ->and($fallback->temperature)->toBe(18.5);
+});
+
 test('overwrites the previous reading for the same station', function () {
     $cache = app(LastReadingCache::class);
     $stationId = StationId::generate();
