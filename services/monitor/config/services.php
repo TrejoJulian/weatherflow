@@ -48,6 +48,8 @@ return [
         'read_write_timeout'  => (float) env('RABBITMQ_READ_WRITE_TIMEOUT', 3.0),
         'heartbeat'                   => (int) env('RABBITMQ_HEARTBEAT', 30),
         'consumer_read_write_timeout' => (float) env('RABBITMQ_CONSUMER_READ_WRITE_TIMEOUT', 60.0),
+        'max_retries' => (int) env('RABBITMQ_MAX_RETRIES', 5),
+        'retry_delay' => (int) env('RABBITMQ_RETRY_DELAY', 3),
     ],
 
     'queues' => [
