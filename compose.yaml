@@ -139,9 +139,120 @@ services:
     ports:
       - '5672:5672'
       - '15672:15672'
+    expose:
+      - '15692'
     environment:
       RABBITMQ_DEFAULT_USER: weatherflow
       RABBITMQ_DEFAULT_PASS: secret
+    volumes:
+      - './observability/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro'
+      - './observability/rabbitmq/20-prometheus.conf:/etc/rabbitmq/conf.d/20-prometheus.conf:ro'
+    networks:
+      - weatherflow
+
+  prometheus:
+    container_name: weatherflow-prometheus
+    image: 'prom/prometheus:v2.53.1'
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    ports:
+      - '9090:9090'
+    volumes:
+      - './observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro'
+      - 'prometheus-data:/prometheus'
+    networks:
+      - weatherflow
+
+  grafana:
+    container_name: weatherflow-grafana
+    image: 'grafana/grafana:11.1.0'
+    ports:
+      # 3001 en el host: el 3000 lo ocupa el frontend nginx.
+      - '3001:3000'
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+    volumes:
+      - './observability/grafana/provisioning:/etc/grafana/provisioning:ro'
+      - 'grafana-data:/var/lib/grafana'
+    networks:
+      - weatherflow
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+
+  loki:
+    container_name: weatherflow-loki
+    image: 'grafana/loki:3.1.0'
+    command: '-config.file=/etc/loki/loki-config.yaml'
+    volumes:
+      - './observability/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro'
+      - 'loki-data:/loki'
+    networks:
+      - weatherflow
+
+  promtail:
+    container_name: weatherflow-promtail
+    image: 'grafana/promtail:3.1.0'
+    command: '-config.file=/etc/promtail/promtail-config.yaml'
+    volumes:
+      - './observability/promtail/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro'
+      - '/var/lib/docker/containers:/var/lib/docker/containers:ro'
+      - '/var/run/docker.sock:/var/run/docker.sock:ro'
+    networks:
+      - weatherflow
+    depends_on:
+      - loki
+
+  tempo:
+    container_name: weatherflow-tempo
+    image: 'grafana/tempo:2.5.0'
+    command: '-config.file=/etc/tempo/tempo-config.yaml'
+    # La imagen corre como uid 10001, que no puede escribir el volumen recién creado.
+    user: root
+    volumes:
+      - './observability/tempo/tempo-config.yaml:/etc/tempo/tempo-config.yaml:ro'
+      - 'tempo-data:/var/tempo'
+    networks:
+      - weatherflow
+
+  otel-collector:
+    container_name: weatherflow-otel-collector
+    image: 'otel/opentelemetry-collector-contrib:0.104.0'
+    command: '--config=/etc/otelcol/config.yaml'
+    expose:
+      - '4317'
+      - '4318'
+      - '8888'
+    volumes:
+      - './observability/otel-collector/config.yaml:/etc/otelcol/config.yaml:ro'
+    networks:
+      - weatherflow
+    depends_on:
+      - tempo
+
+  cadvisor:
+    container_name: weatherflow-cadvisor
+    image: 'gcr.io/cadvisor/cadvisor:v0.49.1'
+    privileged: true
+    volumes:
+      - '/:/rootfs:ro'
+      - '/var/run:/var/run:ro'
+      - '/sys:/sys:ro'
+      - '/var/lib/docker:/var/lib/docker:ro'
+    networks:
+      - weatherflow
+
+  node-exporter:
+    container_name: weatherflow-node-exporter
+    image: 'prom/node-exporter:v1.8.1'
+    command:
+      - '--path.rootfs=/host'
+    volumes:
+      - '/:/host:ro'
     networks:
       - weatherflow
 
@@ -153,4 +264,12 @@ volumes:
   core-mongodb-data:
     driver: local
   monitor-mongodb-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  loki-data:
+    driver: local
+  tempo-data:
     driver: local

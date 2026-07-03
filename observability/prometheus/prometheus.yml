@@ -1,0 +1,35 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Apps PHP: DOWN hasta que exista el endpoint /metrics (issue siguiente).
+  - job_name: core
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['core:80']
+
+  - job_name: monitor
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['monitor:80']
+
+  - job_name: cadvisor
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  - job_name: node-exporter
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  - job_name: rabbitmq
+    static_configs:
+      - targets: ['rabbitmq:15692']
+
+  - job_name: otel-collector
+    static_configs:
+      - targets: ['otel-collector:8888']
