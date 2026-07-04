@@ -1,6 +1,7 @@
 <?php
 
 use App\Infrastructure\Http\Controllers\MetricsController;
+use App\Infrastructure\Http\Middleware\PrometheusHttpMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -18,7 +19,8 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Instruments request rate, latency and status per route template.
+        $middleware->appendToGroup('api', PrometheusHttpMiddleware::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
