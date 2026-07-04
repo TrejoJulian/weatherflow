@@ -67,4 +67,8 @@ return [
         'cron' => env('INGESTION_CRON', '*/10 * * * *'),
     ],
 
+    'observability' => [
+        'service_name' => env('OTEL_SERVICE_NAME', 'weatherflow-core'),
+    ],
+
 ];

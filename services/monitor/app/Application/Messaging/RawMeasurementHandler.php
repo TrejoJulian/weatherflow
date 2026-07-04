@@ -15,6 +15,7 @@ use App\Domain\Measurement\ValueObjects\Temperature;
 use App\Domain\WeatherStation\ValueObjects\StationId;
 use DateTimeImmutable;
 use DateTimeInterface;
+use Illuminate\Support\Facades\Log;
 
 final class RawMeasurementHandler
 {
@@ -38,6 +39,12 @@ final class RawMeasurementHandler
 
         $this->measurementRepository->save($measurement);
 
+        Log::info('Measurement persisted', [
+            'station_id'     => $measurement->stationId()->value(),
+            'measurement_id' => $measurement->id()->value(),
+            'trace_id'       => $payload['trace_id'] ?? null,
+        ]);
+
         if ($measurement->alertStatus()) {
             $this->eventPublisher->publish($this->alertsQueue, [
                 'event'          => 'AlertDetected',
@@ -46,6 +53,13 @@ final class RawMeasurementHandler
                 'station_name'   => $payload['station_name'],
                 'alert_types'    => array_map(fn (AlertType $type) => $type->value, $measurement->alertTypes()),
                 'reported_at'    => $measurement->reportedAt()->format(DateTimeInterface::ATOM),
+            ]);
+
+            Log::info('AlertDetected published', [
+                'station_id'     => $measurement->stationId()->value(),
+                'measurement_id' => $measurement->id()->value(),
+                'alert_types'    => array_map(fn (AlertType $type) => $type->value, $measurement->alertTypes()),
+                'trace_id'       => $payload['trace_id'] ?? null,
             ]);
         }
     }

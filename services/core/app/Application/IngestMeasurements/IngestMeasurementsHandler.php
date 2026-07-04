@@ -48,6 +48,12 @@ final class IngestMeasurementsHandler
                         ->format('Y-m-d\TH:i:s\Z'),
                     'trace_id' => $traceId,
                 ]);
+
+                Log::info('Measurement ingested and published', [
+                    'station_id' => $station->id()->value(),
+                    'trace_id'   => $traceId,
+                    'provider'   => $station->climateProvider()->value,
+                ]);
             } catch (Throwable $exception) {
                 Log::error('Failed to ingest measurement for station', [
                     'station_id' => $station->id()->value(),

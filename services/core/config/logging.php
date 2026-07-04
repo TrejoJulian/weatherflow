@@ -1,5 +1,6 @@
 <?php
 
+use App\Infrastructure\Logging\ObservabilityProcessor;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -102,7 +103,7 @@ return [
                 'stream' => 'php://stderr',
             ],
             'formatter' => env('LOG_STDERR_FORMATTER'),
-            'processors' => [PsrLogMessageProcessor::class],
+            'processors' => [ObservabilityProcessor::class, PsrLogMessageProcessor::class],
         ],
 
         'syslog' => [

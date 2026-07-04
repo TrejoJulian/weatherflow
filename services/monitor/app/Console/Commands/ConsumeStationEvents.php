@@ -50,7 +50,10 @@ final class ConsumeStationEvents extends Command
 
                     if (($payload['event'] ?? null) === 'StationRenamed') {
                         $handler->handle($payload);
-                        $this->info("[monitor] StationRenamed — station {$payload['station_id']} renamed to '{$payload['new_name']}'");
+                        Log::info('Station renamed', [
+                            'station_id' => $payload['station_id'],
+                            'new_name'   => $payload['new_name'],
+                        ]);
                     }
 
                     $message->ack();
