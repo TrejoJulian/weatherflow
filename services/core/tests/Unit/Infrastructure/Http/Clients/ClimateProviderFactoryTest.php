@@ -6,10 +6,11 @@ use App\Domain\WeatherStation\Clients\ClimateProvider;
 use App\Domain\WeatherStation\Enums\ClimateProviderType;
 use App\Infrastructure\Http\Clients\ClimateProviderFactory;
 use App\Infrastructure\Http\Clients\OpenWeatherProvider;
+use Tests\Unit\Infrastructure\Metrics\FakeMetricsRecorder;
 use Tests\Unit\Infrastructure\Resilience\GaneshaTestDoubles;
 
 test('for OpenWeather returns OpenWeatherProvider instance', function () {
-    $openWeatherProvider = new OpenWeatherProvider(GaneshaTestDoubles::alwaysAvailable());
+    $openWeatherProvider = new OpenWeatherProvider(GaneshaTestDoubles::alwaysAvailable(), new FakeMetricsRecorder);
     $factory = new ClimateProviderFactory($openWeatherProvider);
 
     $provider = $factory->for(ClimateProviderType::OpenWeather);

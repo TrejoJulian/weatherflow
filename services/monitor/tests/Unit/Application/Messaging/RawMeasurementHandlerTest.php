@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Application\Messaging\RawMeasurementHandler;
 use Tests\Unit\Domain\Measurement\FakeMeasurementRepository;
 use Tests\Unit\Infrastructure\Messaging\FakeEventPublisher;
+use Tests\Unit\Infrastructure\Metrics\FakeMetricsRecorder;
 
 function makeRawMeasurementPayload(
     string $stationId = '00000000-0000-4000-a000-000000000001',
@@ -28,7 +29,8 @@ function makeRawMeasurementPayload(
 
 test('persists a measurement from raw payload without station lookup', function () {
     $repository = new FakeMeasurementRepository();
-    $handler    = new RawMeasurementHandler($repository, new FakeEventPublisher(), 'alert-events');
+    $metrics    = new FakeMetricsRecorder();
+    $handler    = new RawMeasurementHandler($repository, new FakeEventPublisher(), $metrics, 'alert-events');
 
     $handler->handle(makeRawMeasurementPayload());
 
@@ -37,23 +39,26 @@ test('persists a measurement from raw payload without station lookup', function 
         ->and($measurements[0]->stationId()->value())->toBe('00000000-0000-4000-a000-000000000001')
         ->and($measurements[0]->stationName())->toBe('Universidad Nacional de Quilmes')
         ->and($measurements[0]->temperature()->value())->toBe(20.0)
-        ->and($measurements[0]->alertStatus())->toBeFalse();
+        ->and($measurements[0]->alertStatus())->toBeFalse()
+        ->and($metrics->measurementsIngestedCount('raw'))->toBe(1);
 });
 
 test('calculates extreme heat alert on raw ingestion', function () {
     $repository = new FakeMeasurementRepository();
-    $handler    = new RawMeasurementHandler($repository, new FakeEventPublisher(), 'alert-events');
+    $metrics    = new FakeMetricsRecorder();
+    $handler    = new RawMeasurementHandler($repository, new FakeEventPublisher(), $metrics, 'alert-events');
 
     $handler->handle(makeRawMeasurementPayload(temperature: 41.0));
 
     $measurements = $repository->findAll();
     expect($measurements[0]->alertStatus())->toBeTrue()
-        ->and($measurements[0]->alertTypes())->toContain(\App\Domain\Measurement\Enums\AlertType::ExtremeHeat);
+        ->and($measurements[0]->alertTypes())->toContain(\App\Domain\Measurement\Enums\AlertType::ExtremeHeat)
+        ->and($metrics->alertsTriggeredCount('extreme_heat'))->toBe(1);
 });
 
 test('publishes AlertDetected event to alert-events queue when raw measurement has alert', function () {
     $publisher = new FakeEventPublisher();
-    $handler   = new RawMeasurementHandler(new FakeMeasurementRepository(), $publisher, 'alert-events');
+    $handler   = new RawMeasurementHandler(new FakeMeasurementRepository(), $publisher, new FakeMetricsRecorder(), 'alert-events');
 
     $handler->handle(makeRawMeasurementPayload(temperature: 41.0));
 
@@ -69,7 +74,7 @@ test('publishes AlertDetected event to alert-events queue when raw measurement h
 
 test('does not publish to alert-events queue when raw measurement has no alert', function () {
     $publisher = new FakeEventPublisher();
-    $handler   = new RawMeasurementHandler(new FakeMeasurementRepository(), $publisher, 'alert-events');
+    $handler   = new RawMeasurementHandler(new FakeMeasurementRepository(), $publisher, new FakeMetricsRecorder(), 'alert-events');
 
     $handler->handle(makeRawMeasurementPayload(temperature: 20.0));
 

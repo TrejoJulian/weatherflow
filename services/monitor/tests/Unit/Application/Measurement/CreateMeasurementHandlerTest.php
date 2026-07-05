@@ -10,6 +10,7 @@ use App\Domain\WeatherStation\StationSummary;
 use Tests\Unit\Domain\Measurement\FakeMeasurementRepository;
 use Tests\Unit\Infrastructure\Clients\FakeStationClient;
 use Tests\Unit\Infrastructure\Messaging\FakeEventPublisher;
+use Tests\Unit\Infrastructure\Metrics\FakeMetricsRecorder;
 
 function makeStationSummary(
     string $stationId = '00000000-0000-4000-a000-000000000001',
@@ -33,7 +34,8 @@ test('creates a measurement and returns a response', function () {
     $stationClient = new FakeStationClient();
     $stationClient->seed(makeStationSummary());
 
-    $handler  = new CreateMeasurementHandler(new FakeMeasurementRepository(), $stationClient, new FakeEventPublisher(), 'alert-events');
+    $metrics  = new FakeMetricsRecorder();
+    $handler  = new CreateMeasurementHandler(new FakeMeasurementRepository(), $stationClient, new FakeEventPublisher(), $metrics, 'alert-events');
     $response = $handler->handle(makeCreateCommand('00000000-0000-4000-a000-000000000001'));
 
     expect($response)->toBeInstanceOf(MeasurementResponse::class)
@@ -41,14 +43,15 @@ test('creates a measurement and returns a response', function () {
         ->and($response->stationName)->toBe('Central Buenos Aires')
         ->and($response->temperature)->toBe(20.0)
         ->and($response->alertStatus)->toBeFalse()
-        ->and($response->alertTypes)->toBe(['None']);
+        ->and($response->alertTypes)->toBe(['None'])
+        ->and($metrics->measurementsIngestedCount('manual'))->toBe(1);
 });
 
 test('calculates extreme heat alert on creation', function () {
     $stationClient = new FakeStationClient();
     $stationClient->seed(makeStationSummary());
 
-    $handler  = new CreateMeasurementHandler(new FakeMeasurementRepository(), $stationClient, new FakeEventPublisher(), 'alert-events');
+    $handler  = new CreateMeasurementHandler(new FakeMeasurementRepository(), $stationClient, new FakeEventPublisher(), new FakeMetricsRecorder(), 'alert-events');
     $response = $handler->handle(makeCreateCommand('00000000-0000-4000-a000-000000000001', temp: 41.0));
 
     expect($response->alertStatus)->toBeTrue()
@@ -59,7 +62,7 @@ test('calculates multiple alerts simultaneously on creation', function () {
     $stationClient = new FakeStationClient();
     $stationClient->seed(makeStationSummary());
 
-    $handler  = new CreateMeasurementHandler(new FakeMeasurementRepository(), $stationClient, new FakeEventPublisher(), 'alert-events');
+    $handler  = new CreateMeasurementHandler(new FakeMeasurementRepository(), $stationClient, new FakeEventPublisher(), new FakeMetricsRecorder(), 'alert-events');
     $response = $handler->handle(makeCreateCommand('00000000-0000-4000-a000-000000000001', temp: -5.0, humidity: 95.0));
 
     expect($response->alertStatus)->toBeTrue()
@@ -68,7 +71,7 @@ test('calculates multiple alerts simultaneously on creation', function () {
 });
 
 test('throws StationNotFoundException when station does not exist', function () {
-    $handler = new CreateMeasurementHandler(new FakeMeasurementRepository(), new FakeStationClient(), new FakeEventPublisher(), 'alert-events');
+    $handler = new CreateMeasurementHandler(new FakeMeasurementRepository(), new FakeStationClient(), new FakeEventPublisher(), new FakeMetricsRecorder(), 'alert-events');
 
     $handler->handle(makeCreateCommand('00000000-0000-4000-a000-000000000099'));
 })->throws(StationNotFoundException::class);
@@ -78,7 +81,7 @@ test('publishes AlertDetected event to alert-events queue when measurement has a
     $stationClient->seed(makeStationSummary());
     $publisher = new FakeEventPublisher();
 
-    $handler = new CreateMeasurementHandler(new FakeMeasurementRepository(), $stationClient, $publisher, 'alert-events');
+    $handler = new CreateMeasurementHandler(new FakeMeasurementRepository(), $stationClient, $publisher, new FakeMetricsRecorder(), 'alert-events');
     $handler->handle(makeCreateCommand('00000000-0000-4000-a000-000000000001', temp: 41.0));
 
     expect($publisher->wasPublishedTo('alert-events'))->toBeTrue();
@@ -95,7 +98,7 @@ test('does not publish to alert-events queue when measurement has no alert', fun
     $stationClient->seed(makeStationSummary());
     $publisher = new FakeEventPublisher();
 
-    $handler = new CreateMeasurementHandler(new FakeMeasurementRepository(), $stationClient, $publisher, 'alert-events');
+    $handler = new CreateMeasurementHandler(new FakeMeasurementRepository(), $stationClient, $publisher, new FakeMetricsRecorder(), 'alert-events');
     $handler->handle(makeCreateCommand('00000000-0000-4000-a000-000000000001', temp: 20.0));
 
     expect($publisher->wasPublishedTo('alert-events'))->toBeFalse();

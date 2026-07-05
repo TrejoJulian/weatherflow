@@ -18,6 +18,7 @@ use Tests\Unit\Domain\WeatherStation\FakeClimateProvider;
 use Tests\Unit\Domain\WeatherStation\FakeWeatherStationRepository;
 use Tests\Unit\Domain\WeatherStation\ThrowingFakeClimateProvider;
 use Tests\Unit\Infrastructure\Cache\FakeLastReadingCache;
+use Tests\Unit\Infrastructure\Metrics\FakeMetricsRecorder;
 
 function seededStation(string $name = 'Universidad Nacional de Quilmes'): WeatherStation
 {
@@ -41,7 +42,7 @@ test('always queries the provider live even when a reading is cached', function 
     $liveReading = new ClimateReading(21.4, 70.0, 1012.0, new DateTimeImmutable('2026-06-08T15:00:00Z'));
     $factory = new ClimateProviderFactory(new FakeClimateProvider($liveReading));
 
-    $response = (new GetCurrentTemperatureHandler($stationRepo, $factory, $cache))
+    $response = (new GetCurrentTemperatureHandler($stationRepo, $factory, $cache, new FakeMetricsRecorder))
         ->handle(new GetCurrentTemperatureQuery($station->id()->value()));
 
     expect($response)->toBeInstanceOf(CurrentTemperatureResponse::class)
@@ -58,7 +59,7 @@ test('returns a live reading from the provider', function () {
     $reading = new ClimateReading(21.4, 70.0, 1012.0, new DateTimeImmutable('2026-06-08T15:00:00Z'));
     $factory = new ClimateProviderFactory(new FakeClimateProvider($reading));
 
-    $response = (new GetCurrentTemperatureHandler($stationRepo, $factory, new FakeLastReadingCache))
+    $response = new GetCurrentTemperatureHandler($stationRepo, $factory, new FakeLastReadingCache, new FakeMetricsRecorder)
         ->handle(new GetCurrentTemperatureQuery($station->id()->value()));
 
     expect($response->temperature)->toBe(21.4)
@@ -75,13 +76,15 @@ test('serves the stale fallback when the provider is unavailable', function () {
     $cache->put($station->id(), new ClimateReading(20.8, 55.0, 1008.0, new DateTimeImmutable('2026-06-08T14:50:00Z')));
 
     $factory = new ClimateProviderFactory(new ThrowingFakeClimateProvider(new ClimateProviderUnavailableException));
+    $metrics = new FakeMetricsRecorder;
 
-    $response = (new GetCurrentTemperatureHandler($stationRepo, $factory, $cache))
+    $response = (new GetCurrentTemperatureHandler($stationRepo, $factory, $cache, $metrics))
         ->handle(new GetCurrentTemperatureQuery($station->id()->value()));
 
     expect($response->temperature)->toBe(20.8)
         ->and($response->stale)->toBeTrue()
-        ->and($response->source)->toBe('fallback-cache');
+        ->and($response->source)->toBe('fallback-cache')
+        ->and($metrics->currentTemperatureFallbacks)->toBe(1);
 });
 
 test('throws NoCachedReadingAvailableException when the provider fails and nothing is cached', function () {
@@ -91,7 +94,7 @@ test('throws NoCachedReadingAvailableException when the provider fails and nothi
 
     $factory = new ClimateProviderFactory(new ThrowingFakeClimateProvider(new ClimateProviderUnavailableException));
 
-    (new GetCurrentTemperatureHandler($stationRepo, $factory, new FakeLastReadingCache))
+    new GetCurrentTemperatureHandler($stationRepo, $factory, new FakeLastReadingCache, new FakeMetricsRecorder)
         ->handle(new GetCurrentTemperatureQuery($station->id()->value()));
 })->throws(NoCachedReadingAvailableException::class);
 
@@ -99,7 +102,7 @@ test('throws when the station does not exist', function () {
     $reading = new ClimateReading(21.4, 70.0, 1012.0, new DateTimeImmutable('2026-06-08T15:00:00Z'));
     $factory = new ClimateProviderFactory(new FakeClimateProvider($reading));
 
-    (new GetCurrentTemperatureHandler(new FakeWeatherStationRepository(), $factory, new FakeLastReadingCache))
+    new GetCurrentTemperatureHandler(new FakeWeatherStationRepository(), $factory, new FakeLastReadingCache, new FakeMetricsRecorder)
         ->handle(new GetCurrentTemperatureQuery('00000000-0000-4000-a000-000000000000'));
 })->throws(StationNotFoundException::class);
 
@@ -111,7 +114,7 @@ test('serializes to the documented snake_case contract', function () {
     $reading = new ClimateReading(8.2, 55.0, 1008.0, new DateTimeImmutable('2026-06-08T15:00:00Z'));
     $factory = new ClimateProviderFactory(new FakeClimateProvider($reading));
 
-    $response = (new GetCurrentTemperatureHandler($stationRepo, $factory, new FakeLastReadingCache))
+    $response = new GetCurrentTemperatureHandler($stationRepo, $factory, new FakeLastReadingCache, new FakeMetricsRecorder)
         ->handle(new GetCurrentTemperatureQuery($station->id()->value()));
 
     expect($response->jsonSerialize())

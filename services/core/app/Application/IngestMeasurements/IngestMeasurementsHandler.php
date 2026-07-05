@@ -6,6 +6,7 @@ namespace App\Application\IngestMeasurements;
 
 use App\Application\Contracts\EventPublisher;
 use App\Application\Contracts\LastReadingCache;
+use App\Application\Contracts\MetricsRecorder;
 use App\Domain\WeatherStation\Repositories\WeatherStationRepository;
 use App\Domain\WeatherStation\ValueObjects\ClimateReading;
 use App\Domain\WeatherStation\ValueObjects\StationId;
@@ -21,6 +22,7 @@ final class IngestMeasurementsHandler
         private readonly ClimateProviderFactory $providerFactory,
         private readonly EventPublisher $eventPublisher,
         private readonly LastReadingCache $lastReadingCache,
+        private readonly MetricsRecorder $metrics,
         private readonly string $rawMeasurementsQueue,
     ) {}
 
@@ -49,6 +51,8 @@ final class IngestMeasurementsHandler
                     'trace_id' => $traceId,
                 ]);
             } catch (Throwable $exception) {
+                $this->metrics->incrementIngestionError($station->id()->value());
+
                 Log::error('Failed to ingest measurement for station', [
                     'station_id' => $station->id()->value(),
                     'provider' => $station->climateProvider()->value,

@@ -11,6 +11,7 @@ use App\Infrastructure\Http\Clients\OpenWeatherProvider;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Redis;
+use Tests\Unit\Infrastructure\Metrics\FakeMetricsRecorder;
 
 beforeEach(function () {
     try {
@@ -60,7 +61,7 @@ function ganeshaForIntegrationTest(): Ganesha
 test('opens the circuit after repeated transient failures and rejects further calls without HTTP', function () {
     $location = new Location(-34.9205, -58.3838);
     $ganesha = ganeshaForIntegrationTest();
-    $provider = new OpenWeatherProvider($ganesha);
+    $provider = new OpenWeatherProvider($ganesha, new FakeMetricsRecorder);
 
     for ($attempt = 0; $attempt < 3; $attempt++) {
         expect(fn () => $provider->fetchCurrentReading($location))
@@ -76,8 +77,8 @@ test('opens the circuit after repeated transient failures and rejects further ca
 test('shares circuit breaker state in Redis across provider instances', function () {
     $location = new Location(-34.9205, -58.3838);
     $ganesha = ganeshaForIntegrationTest();
-    $schedulerProvider = new OpenWeatherProvider($ganesha);
-    $endpointProvider = new OpenWeatherProvider($ganesha);
+    $schedulerProvider = new OpenWeatherProvider($ganesha, new FakeMetricsRecorder);
+    $endpointProvider = new OpenWeatherProvider($ganesha, new FakeMetricsRecorder);
 
     for ($attempt = 0; $attempt < 3; $attempt++) {
         expect(fn () => $schedulerProvider->fetchCurrentReading($location))
