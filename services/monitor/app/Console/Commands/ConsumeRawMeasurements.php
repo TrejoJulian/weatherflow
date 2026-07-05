@@ -80,7 +80,8 @@ final class ConsumeRawMeasurements extends Command
 
         if (! is_array($payload) || ($payload['event'] ?? null) !== 'RawMeasurementIngested' || $this->hasMissingFields($payload)) {
             Log::warning('Discarding malformed raw-measurement message', [
-                'body' => $message->body,
+                'message_outcome' => 'discarded_malformed',
+                'body'            => $message->body,
             ]);
             $message->ack();
 
@@ -89,10 +90,14 @@ final class ConsumeRawMeasurements extends Command
 
         try {
             $handler->handle($payload);
-            $this->info("[monitor] RawMeasurementIngested — station {$payload['station_id']} ({$payload['station_name']})");
+            Log::info('Raw measurement processed', [
+                'message_outcome' => 'processed',
+                'trace_id'        => $payload['trace_id'] ?? null,
+                'station_id'      => $payload['station_id'],
+            ]);
             $message->ack();
         } catch (Throwable $exception) {
-            $this->requeueOrDiscard($message, $channel, $queue, $exception);
+            $this->requeueOrDiscard($message, $channel, $queue, $exception, $payload);
         }
     }
 
@@ -112,16 +117,21 @@ final class ConsumeRawMeasurements extends Command
         return false;
     }
 
-    private function requeueOrDiscard(AMQPMessage $message, AMQPChannel $channel, string $queue, Throwable $exception): void
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function requeueOrDiscard(AMQPMessage $message, AMQPChannel $channel, string $queue, Throwable $exception, array $payload): void
     {
         $retryCount = $this->retryCount($message);
         $maxRetries = (int) config('services.rabbitmq.max_retries');
 
         if ($retryCount >= $maxRetries) {
             Log::error('Discarding raw-measurement after exhausting retries', [
-                'retries' => $retryCount,
-                'error'   => $exception->getMessage(),
-                'body'    => $message->body,
+                'message_outcome' => 'discarded_retries_exhausted',
+                'retry_count'     => $retryCount,
+                'trace_id'        => $payload['trace_id'] ?? null,
+                'error'           => $exception->getMessage(),
+                'body'            => $message->body,
             ]);
             $message->ack();
 
@@ -129,8 +139,10 @@ final class ConsumeRawMeasurements extends Command
         }
 
         Log::warning('Requeueing raw-measurement after transient failure', [
-            'attempt' => $retryCount + 1,
-            'error'   => $exception->getMessage(),
+            'message_outcome' => 'requeued_retry',
+            'retry_count'     => $retryCount + 1,
+            'trace_id'        => $payload['trace_id'] ?? null,
+            'error'           => $exception->getMessage(),
         ]);
 
         sleep((int) config('services.rabbitmq.retry_delay'));

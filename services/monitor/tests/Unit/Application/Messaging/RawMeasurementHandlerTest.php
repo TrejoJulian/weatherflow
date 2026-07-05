@@ -3,8 +3,14 @@
 declare(strict_types=1);
 
 use App\Application\Messaging\RawMeasurementHandler;
+use Illuminate\Support\Facades\Log;
+use Tests\TestCase;
 use Tests\Unit\Domain\Measurement\FakeMeasurementRepository;
 use Tests\Unit\Infrastructure\Messaging\FakeEventPublisher;
+
+uses(TestCase::class);
+
+beforeEach(fn () => Log::spy());
 
 function makeRawMeasurementPayload(
     string $stationId = '00000000-0000-4000-a000-000000000001',

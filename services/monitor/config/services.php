@@ -58,4 +58,8 @@ return [
         'raw_measurements' => env('QUEUE_RAW_MEASUREMENTS', 'raw-measurements'),
     ],
 
+    'observability' => [
+        'service_name' => env('OTEL_SERVICE_NAME', 'weatherflow-monitor'),
+    ],
+
 ];
