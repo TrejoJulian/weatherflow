@@ -14,7 +14,8 @@
         "laravel/framework": "^13.0",
         "laravel/tinker": "^3.0",
         "mongodb/laravel-mongodb": "^5.7",
-        "php-amqplib/php-amqplib": "^3.7"
+        "php-amqplib/php-amqplib": "^3.7",
+        "promphp/prometheus_client_php": "^2.15"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
