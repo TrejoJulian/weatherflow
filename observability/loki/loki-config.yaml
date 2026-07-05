@@ -26,4 +26,14 @@ schema_config:
         period: 24h
 
 limits_config:
+  # trace_id se envía como structured metadata desde Promtail (campo filtrable
+  # sin indexar como label).
   allow_structured_metadata: true
+  # Habilita el histograma de volumen de logs en Grafana Explore.
+  volume_enabled: true
+  # Márgenes holgados para el entorno del TP (evita rechazos por antigüedad o
+  # ráfagas durante los tests de ingesta).
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+  ingestion_rate_mb: 16
+  ingestion_burst_size_mb: 32

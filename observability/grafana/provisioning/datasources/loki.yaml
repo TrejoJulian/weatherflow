@@ -5,3 +5,14 @@ datasources:
     type: loki
     access: proxy
     url: http://loki:3100
+    jsonData:
+      # Derived field: detecta un trace_id W3C (32 hex) en la línea de log y ofrece
+      # un link directo al trace en Tempo. El $$ escapa la interpolación de
+      # variables del provisioning para pasar el literal ${__value.raw} a Grafana.
+      derivedFields:
+        - name: trace_id
+          matcherType: regex
+          matcherRegex: '"trace_id":"([a-f0-9]{32})"'
+          datasourceUid: tempo
+          url: '$${__value.raw}'
+          urlDisplayLabel: 'Ver trace en Tempo'
