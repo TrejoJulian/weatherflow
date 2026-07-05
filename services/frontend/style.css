@@ -95,6 +95,27 @@ body {
 .btn-danger    { background: none; color: var(--red); border-color: #5a1a1a; }
 .btn-danger:hover { background: #5a1a1a; }
 .btn-sm { padding: 0.2rem 0.55rem; font-size: 12px; }
+.btn:disabled { opacity: 0.4; cursor: default; pointer-events: none; }
+
+/* ── Pager ── */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0.75rem 0.25rem 0;
+}
+.page-input {
+  width: 3.2rem;
+  margin: 0 0.15rem;
+  padding: 0.15rem 0.35rem;
+  text-align: center;
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font: inherit;
+}
 
 /* ── Filters ── */
 .filters {

@@ -1,6 +1,8 @@
 import { CORE, apiGet, apiPost, apiPut, apiDel } from './api.js';
-import { toast, openModal, closeModal, shortId, fmtDate } from './ui.js';
+import { toast, openModal, closeModal, shortId, fmtDate, renderList } from './ui.js';
 import { state, userOptions } from './state.js';
+
+let stationsPage = 1;
 
 const CLIMATE_PROVIDERS = [
   { value: 'openweather', label: 'OpenWeather' },
@@ -21,6 +23,7 @@ export async function loadStations(filters = {}) {
   if (filters.createdFrom) params.set('created_from', filters.createdFrom);
   if (filters.createdTo)   params.set('created_to',   filters.createdTo);
 
+  stationsPage = 1;
   const qs = params.toString();
   try {
     const data = await apiGet(`${CORE}/stations${qs ? '?' + qs : ''}`);
@@ -40,11 +43,16 @@ export function currentStationFilters() {
 }
 
 function renderStations(el, list) {
-  if (!list.length) {
-    el.innerHTML = '<div class="empty">No stations found.</div>';
-    return;
-  }
-  el.innerHTML = `
+  renderList(el, list, {
+    emptyMessage: 'No stations found.',
+    getPage: () => stationsPage,
+    setPage: (page) => { stationsPage = page; },
+    renderTable: stationsTable,
+  });
+}
+
+function stationsTable(list) {
+  return `
     <div class="table-wrap">
       <table>
         <thead>
