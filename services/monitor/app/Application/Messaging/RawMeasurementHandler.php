@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Messaging;
 
 use App\Application\Contracts\EventPublisher;
+use App\Application\Contracts\MetricsRecorder;
 use App\Domain\Measurement\Entities\Measurement;
 use App\Domain\Measurement\Enums\AlertType;
 use App\Domain\Measurement\Repositories\MeasurementRepository;
@@ -22,6 +23,7 @@ final class RawMeasurementHandler
     public function __construct(
         private readonly MeasurementRepository $measurementRepository,
         private readonly EventPublisher        $eventPublisher,
+        private readonly MetricsRecorder       $metrics,
         private readonly string                $alertsQueue,
     ) {}
 
@@ -38,6 +40,7 @@ final class RawMeasurementHandler
         );
 
         $this->measurementRepository->save($measurement);
+        $this->metrics->incrementMeasurementsIngested('raw');
 
         Log::info('Measurement persisted', [
             'station_id'     => $measurement->stationId()->value(),
@@ -46,6 +49,10 @@ final class RawMeasurementHandler
         ]);
 
         if ($measurement->alertStatus()) {
+            foreach ($measurement->alertTypes() as $alertType) {
+                $this->metrics->incrementAlertTriggered($alertType->value);
+            }
+
             $this->eventPublisher->publish($this->alertsQueue, [
                 'event'          => 'AlertDetected',
                 'measurement_id' => $measurement->id()->value(),

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Http\Clients;
 
 use Ackintosh\Ganesha;
+use App\Application\Contracts\MetricsRecorder;
 use App\Domain\WeatherStation\Clients\ClimateProvider;
 use App\Domain\WeatherStation\Exceptions\ClimateProviderUnavailableException;
 use App\Domain\WeatherStation\ValueObjects\ClimateReading;
@@ -24,23 +25,31 @@ final class OpenWeatherProvider implements ClimateProvider
 
     public function __construct(
         private readonly Ganesha $ganesha,
+        private readonly MetricsRecorder $metrics,
     ) {}
 
     public function fetchCurrentReading(Location $location): ClimateReading
     {
         if (! $this->ganesha->isAvailable(self::SERVICE)) {
+            $this->metrics->recordOwmRequest('circuit_open');
+
             throw new ClimateProviderUnavailableException;
         }
+
+        $start = microtime(true);
 
         try {
             $reading = $this->fetchFromApi($location);
             $this->ganesha->success(self::SERVICE);
+            $this->metrics->recordOwmRequest('success', microtime(true) - $start);
 
             return $reading;
         } catch (Throwable $exception) {
             if ($this->isRetryable($exception)) {
                 $this->ganesha->failure(self::SERVICE);
             }
+
+            $this->metrics->recordOwmRequest('error', microtime(true) - $start);
 
             throw $exception;
         }

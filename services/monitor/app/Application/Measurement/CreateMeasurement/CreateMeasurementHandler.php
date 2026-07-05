@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Measurement\CreateMeasurement;
 
 use App\Application\Contracts\EventPublisher;
+use App\Application\Contracts\MetricsRecorder;
 use App\Application\Measurement\MeasurementResponse;
 use App\Domain\Measurement\Entities\Measurement;
 use App\Domain\Measurement\Enums\AlertType;
@@ -25,6 +26,7 @@ final class CreateMeasurementHandler
         private readonly MeasurementRepository $measurementRepository,
         private readonly StationClient         $stationClient,
         private readonly EventPublisher        $eventPublisher,
+        private readonly MetricsRecorder       $metrics,
         private readonly string                $alertsQueue,
     ) {}
 
@@ -49,8 +51,13 @@ final class CreateMeasurementHandler
         );
 
         $this->measurementRepository->save($measurement);
+        $this->metrics->incrementMeasurementsIngested('manual');
 
         if ($measurement->alertStatus()) {
+            foreach ($measurement->alertTypes() as $alertType) {
+                $this->metrics->incrementAlertTriggered($alertType->value);
+            }
+
             $this->eventPublisher->publish($this->alertsQueue, [
                 'event'          => 'AlertDetected',
                 'measurement_id' => $measurement->id()->value(),
