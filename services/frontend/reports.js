@@ -1,4 +1,4 @@
-import { MONITOR, apiGet } from './api.js';
+import { CORE, MONITOR, apiGet } from './api.js';
 import { openModal, closeModal, toast, fmtDate } from './ui.js';
 
 export async function openStationReportsModal(station) {
@@ -9,21 +9,54 @@ export async function openStationReportsModal(station) {
       apiGet(`${MONITOR}/reports/avg/week?station_id=${station.id}`),
     ]);
     document.getElementById('modal-body').innerHTML = renderReports(daily, weekly);
+    loadCurrentTemp(station.id);
   } catch (err) {
     toast(err.message, 'err');
     closeModal();
   }
 }
 
+async function loadCurrentTemp(stationId) {
+  const slot = document.getElementById('current-temp-slot');
+  if (!slot) return;
+  try {
+    const current = await apiGet(`${CORE}/reports/current-temp/${stationId}`);
+    slot.innerHTML = renderCurrentTemp(current);
+  } catch (err) {
+    slot.innerHTML = `
+      <label>Current temperature</label>
+      <div class="dim">Current temperature unavailable: ${err.message}</div>
+    `;
+  }
+}
+
 function renderReports(daily, weekly) {
   return `
     <div class="form">
+      <div id="current-temp-slot" class="form-group">
+        <label>Current temperature</label>
+        <div class="loading">Loading…</div>
+      </div>
       ${reportBlock('Daily average (last 24 h)', daily)}
       ${reportBlock('Weekly average (last 7 days)', weekly)}
       <div class="form-actions">
         <button type="button" class="btn btn-ghost" onclick="closeModal()">Close</button>
       </div>
     </div>
+  `;
+}
+
+function renderCurrentTemp(current) {
+  const cached = current.stale === true || current.source === 'fallback-cache';
+  const badge = cached
+    ? '<div class="dim">cached reading — provider unavailable</div>'
+    : '<div class="dim">live</div>';
+
+  return `
+    <label>Current temperature</label>
+    <div class="mono">${current.temperature.toFixed(1)} °C</div>
+    ${badge}
+    <div class="dim mono">${fmtDate(current.reported_at)}</div>
   `;
 }
 
