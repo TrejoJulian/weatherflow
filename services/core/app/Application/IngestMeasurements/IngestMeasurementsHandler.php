@@ -12,6 +12,9 @@ use App\Domain\WeatherStation\ValueObjects\StationId;
 use App\Infrastructure\Http\Clients\ClimateProviderFactory;
 use DateTimeZone;
 use Illuminate\Support\Facades\Log;
+use OpenTelemetry\API\Trace\SpanInterface;
+use OpenTelemetry\API\Trace\StatusCode;
+use OpenTelemetry\API\Trace\TracerInterface;
 use Throwable;
 
 final class IngestMeasurementsHandler
@@ -21,17 +24,32 @@ final class IngestMeasurementsHandler
         private readonly ClimateProviderFactory $providerFactory,
         private readonly EventPublisher $eventPublisher,
         private readonly LastReadingCache $lastReadingCache,
+        private readonly TracerInterface $tracer,
         private readonly string $rawMeasurementsQueue,
     ) {}
 
     public function handle(): void
     {
         foreach ($this->stationRepository->findAll() as $station) {
-            $traceId = 'ingest-'.bin2hex(random_bytes(8));
+            $stationSpan = $this->tracer->spanBuilder('ingest.station')
+                ->setAttribute('station_id', $station->id()->value())
+                ->setAttribute('provider', $station->climateProvider()->value)
+                ->startSpan();
+            $stationScope = $stationSpan->activate();
+            $traceId = $this->resolveTraceId($stationSpan);
 
             try {
                 $provider = $this->providerFactory->for($station->climateProvider());
-                $reading = $provider->fetchCurrentReading($station->location());
+
+                $fetchSpan = $this->tracer->spanBuilder('owm.fetch')->startSpan();
+                $fetchScope = $fetchSpan->activate();
+
+                try {
+                    $reading = $provider->fetchCurrentReading($station->location());
+                } finally {
+                    $fetchScope->detach();
+                    $fetchSpan->end();
+                }
 
                 $this->cacheLastReading($station->id(), $reading, $traceId);
 
@@ -51,18 +69,33 @@ final class IngestMeasurementsHandler
 
                 Log::info('Measurement ingested and published', [
                     'station_id' => $station->id()->value(),
-                    'trace_id'   => $traceId,
-                    'provider'   => $station->climateProvider()->value,
+                    'trace_id' => $traceId,
+                    'provider' => $station->climateProvider()->value,
                 ]);
             } catch (Throwable $exception) {
+                $stationSpan->recordException($exception);
+                $stationSpan->setStatus(StatusCode::STATUS_ERROR);
+
                 Log::error('Failed to ingest measurement for station', [
                     'station_id' => $station->id()->value(),
                     'provider' => $station->climateProvider()->value,
                     'trace_id' => $traceId,
                     'error' => $exception->getMessage(),
                 ]);
+            } finally {
+                $stationScope->detach();
+                $stationSpan->end();
             }
         }
+    }
+
+    private function resolveTraceId(SpanInterface $span): string
+    {
+        if ($span->getContext()->isValid()) {
+            return $span->getContext()->getTraceId();
+        }
+
+        return 'ingest-'.bin2hex(random_bytes(8));
     }
 
     /**

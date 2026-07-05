@@ -21,6 +21,7 @@ use App\Infrastructure\Persistence\MongoDB\MongoUserRepository;
 use App\Infrastructure\Persistence\MongoDB\MongoWeatherStationRepository;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\ServiceProvider;
+use OpenTelemetry\API\Trace\TracerInterface;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -69,6 +70,7 @@ class AppServiceProvider extends ServiceProvider
                 $app->make(ClimateProviderFactory::class),
                 $app->make(EventPublisher::class),
                 $app->make(LastReadingCache::class),
+                $app->make(TracerInterface::class),
                 config('services.queues.raw_measurements'),
             );
         });

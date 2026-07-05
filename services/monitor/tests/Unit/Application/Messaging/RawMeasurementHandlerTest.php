@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use App\Application\Messaging\RawMeasurementHandler;
 use Illuminate\Support\Facades\Log;
+use OpenTelemetry\API\Globals;
+use OpenTelemetry\API\Trace\TracerInterface;
 use Tests\TestCase;
 use Tests\Unit\Domain\Measurement\FakeMeasurementRepository;
 use Tests\Unit\Infrastructure\Messaging\FakeEventPublisher;
@@ -11,6 +13,18 @@ use Tests\Unit\Infrastructure\Messaging\FakeEventPublisher;
 uses(TestCase::class);
 
 beforeEach(fn () => Log::spy());
+
+function rawMeasurementHandlerTracer(): TracerInterface
+{
+    return Globals::tracerProvider()->getTracer('test');
+}
+
+function makeRawMeasurementHandler(
+    FakeMeasurementRepository $repository,
+    FakeEventPublisher $publisher,
+): RawMeasurementHandler {
+    return new RawMeasurementHandler($repository, $publisher, rawMeasurementHandlerTracer(), 'alert-events');
+}
 
 function makeRawMeasurementPayload(
     string $stationId = '00000000-0000-4000-a000-000000000001',
@@ -34,7 +48,7 @@ function makeRawMeasurementPayload(
 
 test('persists a measurement from raw payload without station lookup', function () {
     $repository = new FakeMeasurementRepository();
-    $handler    = new RawMeasurementHandler($repository, new FakeEventPublisher(), 'alert-events');
+    $handler    = makeRawMeasurementHandler($repository, new FakeEventPublisher());
 
     $handler->handle(makeRawMeasurementPayload());
 
@@ -48,7 +62,7 @@ test('persists a measurement from raw payload without station lookup', function 
 
 test('calculates extreme heat alert on raw ingestion', function () {
     $repository = new FakeMeasurementRepository();
-    $handler    = new RawMeasurementHandler($repository, new FakeEventPublisher(), 'alert-events');
+    $handler    = makeRawMeasurementHandler($repository, new FakeEventPublisher());
 
     $handler->handle(makeRawMeasurementPayload(temperature: 41.0));
 
@@ -59,7 +73,7 @@ test('calculates extreme heat alert on raw ingestion', function () {
 
 test('publishes AlertDetected event to alert-events queue when raw measurement has alert', function () {
     $publisher = new FakeEventPublisher();
-    $handler   = new RawMeasurementHandler(new FakeMeasurementRepository(), $publisher, 'alert-events');
+    $handler   = makeRawMeasurementHandler(new FakeMeasurementRepository(), $publisher);
 
     $handler->handle(makeRawMeasurementPayload(temperature: 41.0));
 
@@ -75,7 +89,7 @@ test('publishes AlertDetected event to alert-events queue when raw measurement h
 
 test('does not publish to alert-events queue when raw measurement has no alert', function () {
     $publisher = new FakeEventPublisher();
-    $handler   = new RawMeasurementHandler(new FakeMeasurementRepository(), $publisher, 'alert-events');
+    $handler   = makeRawMeasurementHandler(new FakeMeasurementRepository(), $publisher);
 
     $handler->handle(makeRawMeasurementPayload(temperature: 20.0));
 

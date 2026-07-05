@@ -59,7 +59,9 @@ return [
     ],
 
     'observability' => [
-        'service_name' => env('OTEL_SERVICE_NAME', 'weatherflow-monitor'),
+        'service_name'      => env('OTEL_SERVICE_NAME', 'weatherflow-monitor'),
+        'otel_enabled'      => filter_var(env('OTEL_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+        'otel_exporter_url' => env('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://otel-collector:4318'),
     ],
 
 ];

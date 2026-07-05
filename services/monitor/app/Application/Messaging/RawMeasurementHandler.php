@@ -16,51 +16,64 @@ use App\Domain\WeatherStation\ValueObjects\StationId;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Support\Facades\Log;
+use OpenTelemetry\API\Trace\TracerInterface;
 
 final class RawMeasurementHandler
 {
     public function __construct(
         private readonly MeasurementRepository $measurementRepository,
-        private readonly EventPublisher        $eventPublisher,
-        private readonly string                $alertsQueue,
+        private readonly EventPublisher $eventPublisher,
+        private readonly TracerInterface $tracer,
+        private readonly string $alertsQueue,
     ) {}
 
     public function handle(array $payload): void
     {
-        $measurement = Measurement::create(
-            id:                  MeasurementId::generate(),
-            stationId:           StationId::fromString($payload['station_id']),
-            stationName:         $payload['station_name'],
-            temperature:         new Temperature($payload['temperature']),
-            humidity:            new Humidity($payload['humidity']),
-            atmosphericPressure: new AtmosphericPressure($payload['atmospheric_pressure']),
-            reportedAt:          new DateTimeImmutable($payload['reported_at']),
-        );
+        $span = $this->tracer->spanBuilder('raw_measurement.handle')
+            ->setAttribute('station_id', $payload['station_id'])
+            ->setAttribute('station_name', $payload['station_name'])
+            ->startSpan();
+        $scope = $span->activate();
 
-        $this->measurementRepository->save($measurement);
+        try {
+            $measurement = Measurement::create(
+                id: MeasurementId::generate(),
+                stationId: StationId::fromString($payload['station_id']),
+                stationName: $payload['station_name'],
+                temperature: new Temperature($payload['temperature']),
+                humidity: new Humidity($payload['humidity']),
+                atmosphericPressure: new AtmosphericPressure($payload['atmospheric_pressure']),
+                reportedAt: new DateTimeImmutable($payload['reported_at']),
+            );
 
-        Log::info('Measurement persisted', [
-            'station_id'     => $measurement->stationId()->value(),
-            'measurement_id' => $measurement->id()->value(),
-            'trace_id'       => $payload['trace_id'] ?? null,
-        ]);
+            $this->measurementRepository->save($measurement);
 
-        if ($measurement->alertStatus()) {
-            $this->eventPublisher->publish($this->alertsQueue, [
-                'event'          => 'AlertDetected',
+            Log::info('Measurement persisted', [
+                'station_id' => $measurement->stationId()->value(),
                 'measurement_id' => $measurement->id()->value(),
-                'station_id'     => $measurement->stationId()->value(),
-                'station_name'   => $payload['station_name'],
-                'alert_types'    => array_map(fn (AlertType $type) => $type->value, $measurement->alertTypes()),
-                'reported_at'    => $measurement->reportedAt()->format(DateTimeInterface::ATOM),
+                'trace_id' => $payload['trace_id'] ?? null,
             ]);
 
-            Log::info('AlertDetected published', [
-                'station_id'     => $measurement->stationId()->value(),
-                'measurement_id' => $measurement->id()->value(),
-                'alert_types'    => array_map(fn (AlertType $type) => $type->value, $measurement->alertTypes()),
-                'trace_id'       => $payload['trace_id'] ?? null,
-            ]);
+            if ($measurement->alertStatus()) {
+                $this->eventPublisher->publish($this->alertsQueue, [
+                    'event' => 'AlertDetected',
+                    'measurement_id' => $measurement->id()->value(),
+                    'station_id' => $measurement->stationId()->value(),
+                    'station_name' => $payload['station_name'],
+                    'alert_types' => array_map(fn (AlertType $type) => $type->value, $measurement->alertTypes()),
+                    'reported_at' => $measurement->reportedAt()->format(DateTimeInterface::ATOM),
+                ]);
+
+                Log::info('AlertDetected published', [
+                    'station_id' => $measurement->stationId()->value(),
+                    'measurement_id' => $measurement->id()->value(),
+                    'alert_types' => array_map(fn (AlertType $type) => $type->value, $measurement->alertTypes()),
+                    'trace_id' => $payload['trace_id'] ?? null,
+                ]);
+            }
+        } finally {
+            $scope->detach();
+            $span->end();
         }
     }
 }

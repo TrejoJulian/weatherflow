@@ -11,6 +11,8 @@ use App\Domain\WeatherStation\ValueObjects\ClimateReading;
 use App\Domain\WeatherStation\ValueObjects\Location;
 use App\Domain\WeatherStation\ValueObjects\StationId;
 use App\Infrastructure\Http\Clients\ClimateProviderFactory;
+use OpenTelemetry\API\Globals;
+use OpenTelemetry\API\Trace\TracerInterface;
 use Tests\TestCase;
 use Tests\Unit\Domain\WeatherStation\FakeClimateProvider;
 use Tests\Unit\Domain\WeatherStation\FakeWeatherStationRepository;
@@ -19,6 +21,11 @@ use Tests\Unit\Infrastructure\Cache\FaultyLastReadingCache;
 use Tests\Unit\Infrastructure\Messaging\FakeEventPublisher;
 
 uses(TestCase::class);
+
+function ingestHandlerTracer(): TracerInterface
+{
+    return Globals::tracerProvider()->getTracer('test');
+}
 
 test('caches the reading and publishes the measurement on a successful tick', function () {
     $repository = new FakeWeatherStationRepository;
@@ -36,7 +43,7 @@ test('caches the reading and publishes the measurement on a successful tick', fu
     $publisher = new FakeEventPublisher;
     $cache = new FakeLastReadingCache;
 
-    (new IngestMeasurementsHandler($repository, $factory, $publisher, $cache, 'raw-measurements'))->handle();
+    (new IngestMeasurementsHandler($repository, $factory, $publisher, $cache, ingestHandlerTracer(), 'raw-measurements'))->handle();
 
     expect($cache->wasPut($station->id()))->toBeTrue()
         ->and($cache->get($station->id()))->toBe($reading)
@@ -58,7 +65,7 @@ test('a cache write failure does not abort ingestion or publishing', function ()
     $factory = new ClimateProviderFactory(new FakeClimateProvider($reading));
     $publisher = new FakeEventPublisher;
 
-    (new IngestMeasurementsHandler($repository, $factory, $publisher, new FaultyLastReadingCache, 'raw-measurements'))->handle();
+    (new IngestMeasurementsHandler($repository, $factory, $publisher, new FaultyLastReadingCache, ingestHandlerTracer(), 'raw-measurements'))->handle();
 
     expect($publisher->wasPublishedTo('raw-measurements'))->toBeTrue();
 });
@@ -85,7 +92,7 @@ test('does not cache or publish when the provider fails', function () {
     $publisher = new FakeEventPublisher;
     $cache = new FakeLastReadingCache;
 
-    (new IngestMeasurementsHandler($repository, $factory, $publisher, $cache, 'raw-measurements'))->handle();
+    (new IngestMeasurementsHandler($repository, $factory, $publisher, $cache, ingestHandlerTracer(), 'raw-measurements'))->handle();
 
     expect($cache->getPutCount())->toBe(0)
         ->and($publisher->wasPublishedTo('raw-measurements'))->toBeFalse();
@@ -116,7 +123,7 @@ test('a provider failure on one station does not stop caching and publishing the
     $publisher = new FakeEventPublisher;
     $cache = new FakeLastReadingCache;
 
-    (new IngestMeasurementsHandler($repository, $factory, $publisher, $cache, 'raw-measurements'))->handle();
+    (new IngestMeasurementsHandler($repository, $factory, $publisher, $cache, ingestHandlerTracer(), 'raw-measurements'))->handle();
 
     expect($cache->wasPut($workingStation->id()))->toBeTrue()
         ->and($cache->wasPut($failingStation->id()))->toBeFalse()
@@ -154,7 +161,7 @@ test('a publish failure on one station does not stop publishing the others', fun
         }
     };
 
-    (new IngestMeasurementsHandler($repository, $factory, $publisher, $cache, 'raw-measurements'))->handle();
+    (new IngestMeasurementsHandler($repository, $factory, $publisher, $cache, ingestHandlerTracer(), 'raw-measurements'))->handle();
 
     expect($publisher->published)->toHaveCount(1)
         ->and($publisher->published[0]['payload']['station_id'])->toBe($workingStation->id()->value());

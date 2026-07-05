@@ -13,6 +13,8 @@
         "laravel/framework": "^13.0",
         "laravel/tinker": "^3.0",
         "mongodb/laravel-mongodb": "^5.7",
+        "open-telemetry/exporter-otlp": "^1.4",
+        "open-telemetry/sdk": "^1.14",
         "php-amqplib/php-amqplib": "^3.7"
     },
     "require-dev": {
