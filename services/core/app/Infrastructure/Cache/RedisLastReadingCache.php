@@ -11,6 +11,12 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Illuminate\Support\Facades\Redis;
 
+/**
+ * Three copies of the same reading with different lifetimes:
+ * - fresh (owm_fresh_ttl): current enough to skip the provider entirely.
+ * - last (owm_cache_ttl): how long the reading is considered reliable.
+ * - fallback (no TTL): last resort when the provider is down.
+ */
 final class RedisLastReadingCache implements LastReadingCache
 {
     public function put(StationId $stationId, ClimateReading $reading): void
@@ -19,6 +25,12 @@ final class RedisLastReadingCache implements LastReadingCache
 
         Redis::setex(
             $this->freshKeyFor($stationId),
+            config('services.resilience.owm_fresh_ttl'),
+            $payload,
+        );
+
+        Redis::setex(
+            $this->lastKeyFor($stationId),
             config('services.resilience.owm_cache_ttl'),
             $payload,
         );
@@ -26,10 +38,18 @@ final class RedisLastReadingCache implements LastReadingCache
         Redis::set($this->fallbackKeyFor($stationId), $payload);
     }
 
+    public function getFresh(StationId $stationId): ?ClimateReading
+    {
+        return $this->read($this->freshKeyFor($stationId));
+    }
+
     public function get(StationId $stationId, bool $ignoreTtl = false): ?ClimateReading
     {
-        $key = $ignoreTtl ? $this->fallbackKeyFor($stationId) : $this->freshKeyFor($stationId);
+        return $this->read($ignoreTtl ? $this->fallbackKeyFor($stationId) : $this->lastKeyFor($stationId));
+    }
 
+    private function read(string $key): ?ClimateReading
+    {
         $payload = Redis::get($key);
 
         // Missing keys come back as false (phpredis) or null (predis).
@@ -41,6 +61,11 @@ final class RedisLastReadingCache implements LastReadingCache
     }
 
     private function freshKeyFor(StationId $stationId): string
+    {
+        return "owm:fresh:{$stationId->value()}";
+    }
+
+    private function lastKeyFor(StationId $stationId): string
     {
         return "owm:last:{$stationId->value()}";
     }

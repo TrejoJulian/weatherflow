@@ -2,8 +2,6 @@
 
 Tests de carga sobre los endpoints de reporte, corridos con [K6](https://k6.io/) vía Docker — no hace falta instalar nada en el host. El contenedor de K6 se conecta a la red del compose y le pega a los servicios por hostname interno (`core`, `monitor`), evitando el overhead del port-mapping.
 
-> Las corridas oficiales (las que validan los thresholds) se hacen con el proyecto clonado en el **filesystem nativo de Linux** (`~/...`, nunca `/mnt/c` o `/mnt/d`). En un entorno con el proyecto montado desde Windows vía WSL2, los tests sirven para validar funcionamiento pero la latencia medida refleja el montaje, no la arquitectura.
-
 ## Tests
 
 | Script | Endpoint | Servicio |
@@ -21,6 +19,8 @@ Cada script corre con uno de tres perfiles, seleccionado con `-e PROFILE=`:
 - **`stress`**: rampa 0 → 20 → 50 VUs sostenidos, ~4 min — dónde y cómo se degrada.
 
 Todos los perfiles validan los mismos thresholds (definidos en `lib/profiles.js`): `http_req_duration p95 < 500ms` y `http_req_failed < 1%`. Si no se cumplen, K6 termina con exit code ≠ 0.
+
+> `current-temp` sirve desde la request cache de Redis mientras la lectura es fresca (`OWM_FRESH_TTL`, default 60 s); solo el primer request de cada ventana paga el viaje a OWM. Por eso el p95 de 500ms es alcanzable aun con una dependencia externa de ~550ms.
 
 ## Cómo correr
 
