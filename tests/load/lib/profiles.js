@@ -13,19 +13,19 @@ const PROFILES = {
         executor: 'ramping-vus',
         startVUs: 0,
         stages: [
-            { duration: '30s', target: 10 },
-            { duration: '2m', target: 20 },
-            { duration: '30s', target: 0 },
+            { duration: '20s', target: 10 },
+            { duration: '80s', target: 20 },
+            { duration: '20s', target: 0 },
         ],
     },
     stress: {
         executor: 'ramping-vus',
         startVUs: 0,
         stages: [
-            { duration: '30s', target: 20 },
-            { duration: '1m', target: 50 },
-            { duration: '2m', target: 50 },
-            { duration: '30s', target: 0 },
+            { duration: '20s', target: 20 },
+            { duration: '30s', target: 50 },
+            { duration: '50s', target: 50 },
+            { duration: '20s', target: 0 },
         ],
     },
 };
