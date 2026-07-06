@@ -5,3 +5,5 @@ datasources:
     type: tempo
     access: proxy
     url: http://tempo:3200
+    # uid fijo para que el derived field de Loki pueda enlazar a este datasource.
+    uid: tempo

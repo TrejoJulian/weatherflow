@@ -1,5 +1,6 @@
 server:
   http_listen_port: 9080
+  grpc_listen_port: 0
 
 positions:
   filename: /tmp/positions.yaml
@@ -8,9 +9,45 @@ clients:
   - url: http://loki:3100/loki/api/v1/push
 
 scrape_configs:
-  - job_name: placeholder
-    static_configs:
-      - targets: [localhost]
-        labels:
-          job: placeholder
-          __path__: /var/log/*.log
+  # Descubre contenedores vía la API de Docker (socket montado en compose.yaml) y
+  # streamea su stdout/stderr. El filtro por nombre limita el scrape a los cuatro
+  # procesos PHP de WeatherFlow ya en la capa del daemon de Docker.
+  - job_name: weatherflow-php
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: name
+            values:
+              - weatherflow-core
+              - weatherflow-monitor
+              - weatherflow-monitor-worker
+              - weatherflow-monitor-worker-raw
+    relabel_configs:
+      # Label de stream con el nombre del contenedor (sin el slash inicial).
+      # Garantiza además que todo stream tenga al menos un label (Loki rechaza
+      # con HTTP 400 los streams sin labels).
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/?(.*)'
+        target_label: 'container'
+      # stdout vs stderr, útil para separar consola de logs estructurados.
+      - source_labels: ['__meta_docker_container_log_stream']
+        target_label: 'stream'
+    pipeline_stages:
+      # Los logs salen como JSON de una línea (JsonFormatter). service y trace_id
+      # viven bajo "extra"; el nivel legible es "level_name" (INFO/WARNING/ERROR).
+      # Las líneas de consola (UX de los workers) no son JSON: el stage falla en
+      # silencio y esas líneas quedan solo con el label container.
+      - json:
+          expressions:
+            service: extra.service
+            level: level_name
+            trace_id: extra.trace_id
+      # Solo service y level como labels de stream (baja cardinalidad).
+      - labels:
+          service:
+          level:
+      # trace_id NO es label:
+      # va como structured metadata, filtrable en consulta sin indexarse.
+      - structured_metadata:
+          trace_id:
