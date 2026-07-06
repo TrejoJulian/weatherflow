@@ -16,6 +16,7 @@ use App\Domain\WeatherStation\ValueObjects\StationId;
 use DateTimeImmutable;
 use DateTimeInterface;
 use Illuminate\Support\Facades\Log;
+use OpenTelemetry\API\Trace\Span;
 use OpenTelemetry\API\Trace\TracerInterface;
 
 final class RawMeasurementHandler
@@ -29,23 +30,23 @@ final class RawMeasurementHandler
 
     public function handle(array $payload): void
     {
-        $span = $this->tracer->spanBuilder('raw_measurement.handle')
+        $measurement = Measurement::create(
+            id: MeasurementId::generate(),
+            stationId: StationId::fromString($payload['station_id']),
+            stationName: $payload['station_name'],
+            temperature: new Temperature($payload['temperature']),
+            humidity: new Humidity($payload['humidity']),
+            atmosphericPressure: new AtmosphericPressure($payload['atmospheric_pressure']),
+            reportedAt: new DateTimeImmutable($payload['reported_at']),
+        );
+
+        $persistSpan = $this->tracer->spanBuilder('measurement.persist')
             ->setAttribute('station_id', $payload['station_id'])
             ->setAttribute('station_name', $payload['station_name'])
             ->startSpan();
-        $scope = $span->activate();
+        $persistScope = $persistSpan->activate();
 
         try {
-            $measurement = Measurement::create(
-                id: MeasurementId::generate(),
-                stationId: StationId::fromString($payload['station_id']),
-                stationName: $payload['station_name'],
-                temperature: new Temperature($payload['temperature']),
-                humidity: new Humidity($payload['humidity']),
-                atmosphericPressure: new AtmosphericPressure($payload['atmospheric_pressure']),
-                reportedAt: new DateTimeImmutable($payload['reported_at']),
-            );
-
             $this->measurementRepository->save($measurement);
 
             Log::info('Measurement persisted', [
@@ -53,8 +54,22 @@ final class RawMeasurementHandler
                 'measurement_id' => $measurement->id()->value(),
                 'trace_id' => $payload['trace_id'] ?? null,
             ]);
+        } finally {
+            $persistScope->detach();
+            $persistSpan->end();
+        }
 
-            if ($measurement->alertStatus()) {
+        if ($measurement->alertStatus()) {
+            $traceId = Span::getCurrent()->getContext()->isValid()
+                ? Span::getCurrent()->getContext()->getTraceId()
+                : ($payload['trace_id'] ?? null);
+
+            $publishSpan = $this->tracer->spanBuilder('alert.publish')
+                ->setAttribute('station_id', $payload['station_id'])
+                ->startSpan();
+            $publishScope = $publishSpan->activate();
+
+            try {
                 $this->eventPublisher->publish($this->alertsQueue, [
                     'event' => 'AlertDetected',
                     'measurement_id' => $measurement->id()->value(),
@@ -62,18 +77,19 @@ final class RawMeasurementHandler
                     'station_name' => $payload['station_name'],
                     'alert_types' => array_map(fn (AlertType $type) => $type->value, $measurement->alertTypes()),
                     'reported_at' => $measurement->reportedAt()->format(DateTimeInterface::ATOM),
+                    'trace_id' => $traceId,
                 ]);
 
                 Log::info('AlertDetected published', [
                     'station_id' => $measurement->stationId()->value(),
                     'measurement_id' => $measurement->id()->value(),
                     'alert_types' => array_map(fn (AlertType $type) => $type->value, $measurement->alertTypes()),
-                    'trace_id' => $payload['trace_id'] ?? null,
+                    'trace_id' => $traceId,
                 ]);
+            } finally {
+                $publishScope->detach();
+                $publishSpan->end();
             }
-        } finally {
-            $scope->detach();
-            $span->end();
         }
     }
 }

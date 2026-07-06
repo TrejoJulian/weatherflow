@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Infrastructure\Messaging;
 
 use App\Application\Contracts\EventPublisher;
+use App\Infrastructure\Observability\TraceContextCarrier;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Message\AMQPMessage;
+use PhpAmqpLib\Wire\AMQPTable;
 
 final class RabbitMQEventPublisher implements EventPublisher
 {
@@ -31,13 +33,21 @@ final class RabbitMQEventPublisher implements EventPublisher
             auto_delete: false,
         );
 
+        $properties = [
+            'content_type'  => 'application/json',
+            'delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT,
+        ];
+
+        $headers = TraceContextCarrier::injectIntoAmqpHeaders();
+
+        if ($headers !== []) {
+            $properties['application_headers'] = new AMQPTable($headers);
+        }
+
         $channel->basic_publish(
             msg: new AMQPMessage(
                 body:       json_encode($payload),
-                properties: [
-                    'content_type'  => 'application/json',
-                    'delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT,
-                ],
+                properties: $properties,
             ),
             exchange:    '',
             routing_key: $queue,

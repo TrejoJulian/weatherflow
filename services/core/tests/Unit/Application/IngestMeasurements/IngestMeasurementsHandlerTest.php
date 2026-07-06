@@ -13,6 +13,9 @@ use App\Domain\WeatherStation\ValueObjects\StationId;
 use App\Infrastructure\Http\Clients\ClimateProviderFactory;
 use OpenTelemetry\API\Globals;
 use OpenTelemetry\API\Trace\TracerInterface;
+use OpenTelemetry\SDK\Trace\SpanExporter\InMemorySpanExporterFactory;
+use OpenTelemetry\SDK\Trace\SpanProcessor\SimpleSpanProcessor;
+use OpenTelemetry\SDK\Trace\TracerProvider;
 use Tests\TestCase;
 use Tests\Unit\Domain\WeatherStation\FakeClimateProvider;
 use Tests\Unit\Domain\WeatherStation\FakeWeatherStationRepository;
@@ -25,6 +28,14 @@ uses(TestCase::class);
 function ingestHandlerTracer(): TracerInterface
 {
     return Globals::tracerProvider()->getTracer('test');
+}
+
+function ingestHandlerInMemoryTracer(): TracerInterface
+{
+    return TracerProvider::builder()
+        ->addSpanProcessor(new SimpleSpanProcessor((new InMemorySpanExporterFactory())->create()))
+        ->build()
+        ->getTracer('test');
 }
 
 test('caches the reading and publishes the measurement on a successful tick', function () {
@@ -165,4 +176,37 @@ test('a publish failure on one station does not stop publishing the others', fun
 
     expect($publisher->published)->toHaveCount(1)
         ->and($publisher->published[0]['payload']['station_id'])->toBe($workingStation->id()->value());
+});
+
+test('published payload carries W3C trace_id from active span when otel is enabled', function () {
+    config(['services.observability.otel_enabled' => true]);
+
+    $repository = new FakeWeatherStationRepository;
+    $station = WeatherStation::create(
+        StationId::generate(),
+        UserId::fromString('00000000-0000-4000-a000-000000000001'),
+        'Estación Central',
+        new Location(-34.9, -58.3),
+        'Sensor 1',
+    );
+    $repository->seed($station);
+
+    $reading = new ClimateReading(21.4, 70.0, 1012.0, new DateTimeImmutable);
+    $factory = new ClimateProviderFactory(new FakeClimateProvider($reading));
+    $publisher = new FakeEventPublisher;
+    $cache = new FakeLastReadingCache;
+
+    (new IngestMeasurementsHandler(
+        $repository,
+        $factory,
+        $publisher,
+        $cache,
+        ingestHandlerInMemoryTracer(),
+        'raw-measurements',
+    ))->handle();
+
+    $published = $publisher->getPublishedTo('raw-measurements')[0]['payload'];
+
+    expect($published['trace_id'])->toMatch('/^[0-9a-f]{32}$/')
+        ->and($published['trace_id'])->not->toStartWith('ingest-');
 });

@@ -53,19 +53,27 @@ final class IngestMeasurementsHandler
 
                 $this->cacheLastReading($station->id(), $reading, $traceId);
 
-                $this->eventPublisher->publish($this->rawMeasurementsQueue, [
-                    'event' => 'RawMeasurementIngested',
-                    'station_id' => $station->id()->value(),
-                    'station_name' => $station->stationName(),
-                    'provider' => $station->climateProvider()->value,
-                    'temperature' => $reading->temperature,
-                    'humidity' => $reading->humidity,
-                    'atmospheric_pressure' => $reading->atmosphericPressure,
-                    'reported_at' => $reading->reportedAt
-                        ->setTimezone(new DateTimeZone('UTC'))
-                        ->format('Y-m-d\TH:i:s\Z'),
-                    'trace_id' => $traceId,
-                ]);
+                $publishSpan = $this->tracer->spanBuilder('amqp.publish')->startSpan();
+                $publishScope = $publishSpan->activate();
+
+                try {
+                    $this->eventPublisher->publish($this->rawMeasurementsQueue, [
+                        'event' => 'RawMeasurementIngested',
+                        'station_id' => $station->id()->value(),
+                        'station_name' => $station->stationName(),
+                        'provider' => $station->climateProvider()->value,
+                        'temperature' => $reading->temperature,
+                        'humidity' => $reading->humidity,
+                        'atmospheric_pressure' => $reading->atmosphericPressure,
+                        'reported_at' => $reading->reportedAt
+                            ->setTimezone(new DateTimeZone('UTC'))
+                            ->format('Y-m-d\TH:i:s\Z'),
+                        'trace_id' => $traceId,
+                    ]);
+                } finally {
+                    $publishScope->detach();
+                    $publishSpan->end();
+                }
 
                 Log::info('Measurement ingested and published', [
                     'station_id' => $station->id()->value(),
