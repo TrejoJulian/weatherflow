@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: WeatherFlow
+    orgId: 1
+    folder: WeatherFlow
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards

@@ -22,6 +22,10 @@ scrape_configs:
     static_configs:
       - targets: ['cadvisor:8080']
 
+  - job_name: docker-stats-exporter
+    static_configs:
+      - targets: ['docker-stats-exporter:9200']
+
   - job_name: node-exporter
     static_configs:
       - targets: ['node-exporter:9100']
