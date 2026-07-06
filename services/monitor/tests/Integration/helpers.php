@@ -248,8 +248,7 @@ function rawMeasurementPayload(array $overrides = []): array
     ], $overrides);
 }
 
-function waitForMeasurement(string $stationId, int $timeoutSeconds = 10): MeasurementModel
-{
+function waitForMeasurement(string $stationId, int $timeoutSeconds = 10): MeasurementModel {
     $deadline = time() + $timeoutSeconds;
 
     while (time() < $deadline) {

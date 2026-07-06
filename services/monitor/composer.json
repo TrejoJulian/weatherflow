@@ -13,6 +13,7 @@
         "laravel/framework": "^13.0",
         "laravel/tinker": "^3.0",
         "mongodb/laravel-mongodb": "^5.7",
+        "promphp/prometheus_client_php": "^2.15",
         "open-telemetry/exporter-otlp": "^1.4",
         "open-telemetry/sdk": "^1.14",
         "php-amqplib/php-amqplib": "^3.7"
@@ -73,7 +74,8 @@
         "sort-packages": true,
         "allow-plugins": {
             "pestphp/pest-plugin": true,
-            "php-http/discovery": true
+            "php-http/discovery": true,
+            "tbachert/spi": true
         }
     },
     "minimum-stability": "stable",

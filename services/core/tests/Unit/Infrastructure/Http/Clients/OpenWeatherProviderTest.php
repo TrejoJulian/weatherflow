@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Application\Contracts\MetricsRecorder;
 use App\Domain\WeatherStation\Exceptions\ClimateProviderUnavailableException;
 use App\Domain\WeatherStation\ValueObjects\ClimateReading;
 use App\Domain\WeatherStation\ValueObjects\Location;
@@ -10,6 +11,7 @@ use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
+use Tests\Unit\Infrastructure\Metrics\FakeMetricsRecorder;
 use Tests\Unit\Infrastructure\Resilience\GaneshaTestDoubles;
 
 uses(TestCase::class);
@@ -24,9 +26,9 @@ beforeEach(function () {
     ]);
 });
 
-function openWeatherProvider(): OpenWeatherProvider
+function openWeatherProvider(?MetricsRecorder $metrics = null): OpenWeatherProvider
 {
-    return new OpenWeatherProvider(GaneshaTestDoubles::alwaysAvailable());
+    return new OpenWeatherProvider(GaneshaTestDoubles::alwaysAvailable(), $metrics ?? new FakeMetricsRecorder);
 }
 
 test('maps OpenWeather response to ClimateReading', function () {
@@ -214,7 +216,7 @@ test('throws ClimateProviderUnavailableException when the circuit breaker is ope
 
     $location = new Location(-34.9205, -58.3838);
 
-    expect(fn () => (new OpenWeatherProvider(GaneshaTestDoubles::openCircuit()))->fetchCurrentReading($location))
+    expect(fn () => (new OpenWeatherProvider(GaneshaTestDoubles::openCircuit(), new FakeMetricsRecorder))->fetchCurrentReading($location))
         ->toThrow(ClimateProviderUnavailableException::class);
 
     Http::assertNothingSent();
@@ -229,7 +231,7 @@ test('records a circuit breaker failure after a transient OWM error', function (
 
     $location = new Location(-34.9205, -58.3838);
 
-    expect(fn () => (new OpenWeatherProvider($ganesha))->fetchCurrentReading($location))
+    expect(fn () => (new OpenWeatherProvider($ganesha, new FakeMetricsRecorder))->fetchCurrentReading($location))
         ->toThrow(RequestException::class);
 
     expect($strategy->failureCount)->toBe(1)
@@ -247,7 +249,7 @@ test('records a circuit breaker success after a successful OWM response', functi
     ]);
 
     $location = new Location(-34.9205, -58.3838);
-    (new OpenWeatherProvider($ganesha))->fetchCurrentReading($location);
+    (new OpenWeatherProvider($ganesha, new FakeMetricsRecorder))->fetchCurrentReading($location);
 
     expect($strategy->successCount)->toBe(1)
         ->and($strategy->failureCount)->toBe(0);
@@ -262,9 +264,48 @@ test('does not record a circuit breaker failure on a 401 configuration error', f
 
     $location = new Location(-34.9205, -58.3838);
 
-    expect(fn () => (new OpenWeatherProvider($ganesha))->fetchCurrentReading($location))
+    expect(fn () => (new OpenWeatherProvider($ganesha, new FakeMetricsRecorder))->fetchCurrentReading($location))
         ->toThrow(RequestException::class);
 
     expect($strategy->failureCount)->toBe(0)
         ->and($strategy->successCount)->toBe(0);
+});
+
+test('records a success outcome metric on a successful OWM response', function () {
+    $metrics = new FakeMetricsRecorder;
+
+    Http::fake([
+        'https://api.openweathermap.org/data/2.5/weather*' => Http::response([
+            'dt' => 1717862400,
+            'main' => ['temp' => 21.4, 'humidity' => 70, 'pressure' => 1012],
+        ], 200),
+    ]);
+
+    openWeatherProvider($metrics)->fetchCurrentReading(new Location(-34.9205, -58.3838));
+
+    expect($metrics->owmOutcomeCount('success'))->toBe(1)
+        ->and($metrics->owmRequests[0]['duration'])->not->toBeNull();
+});
+
+test('records an error outcome metric when OWM keeps failing', function () {
+    $metrics = new FakeMetricsRecorder;
+
+    Http::fake([
+        'https://api.openweathermap.org/data/2.5/weather*' => Http::response(['message' => 'Service Unavailable'], 503),
+    ]);
+
+    expect(fn () => openWeatherProvider($metrics)->fetchCurrentReading(new Location(-34.9205, -58.3838)))
+        ->toThrow(RequestException::class);
+
+    expect($metrics->owmOutcomeCount('error'))->toBe(1);
+});
+
+test('records a circuit_open outcome metric without touching the network', function () {
+    $metrics = new FakeMetricsRecorder;
+
+    expect(fn () => (new OpenWeatherProvider(GaneshaTestDoubles::openCircuit(), $metrics))->fetchCurrentReading(new Location(-34.9205, -58.3838)))
+        ->toThrow(ClimateProviderUnavailableException::class);
+
+    expect($metrics->owmOutcomeCount('circuit_open'))->toBe(1)
+        ->and($metrics->owmRequests[0]['duration'])->toBeNull();
 });

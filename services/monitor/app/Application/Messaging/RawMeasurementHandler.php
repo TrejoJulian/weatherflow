@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Messaging;
 
 use App\Application\Contracts\EventPublisher;
+use App\Application\Contracts\MetricsRecorder;
 use App\Domain\Measurement\Entities\Measurement;
 use App\Domain\Measurement\Enums\AlertType;
 use App\Domain\Measurement\Repositories\MeasurementRepository;
@@ -25,7 +26,8 @@ final class RawMeasurementHandler
         private readonly MeasurementRepository $measurementRepository,
         private readonly EventPublisher $eventPublisher,
         private readonly TracerInterface $tracer,
-        private readonly string $alertsQueue,
+        private readonly MetricsRecorder       $metrics,
+        private readonly string                $alertsQueue,
     ) {}
 
     public function handle(array $payload): void
@@ -48,6 +50,7 @@ final class RawMeasurementHandler
 
         try {
             $this->measurementRepository->save($measurement);
+            $this->metrics->incrementMeasurementsIngested('raw');
 
             Log::info('Measurement persisted', [
                 'station_id' => $measurement->stationId()->value(),
@@ -60,6 +63,10 @@ final class RawMeasurementHandler
         }
 
         if ($measurement->alertStatus()) {
+            foreach ($measurement->alertTypes() as $alertType) {
+                $this->metrics->incrementAlertTriggered($alertType->value);
+            }
+
             $traceId = Span::getCurrent()->getContext()->isValid()
                 ? Span::getCurrent()->getContext()->getTraceId()
                 : ($payload['trace_id'] ?? null);

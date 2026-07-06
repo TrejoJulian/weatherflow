@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Application\Reports\GetCurrentTemperature;
 
 use App\Application\Contracts\LastReadingCache;
+use App\Application\Contracts\MetricsRecorder;
 use App\Domain\WeatherStation\Entities\WeatherStation;
 use App\Domain\WeatherStation\Exceptions\NoCachedReadingAvailableException;
 use App\Domain\WeatherStation\Exceptions\StationNotFoundException;
@@ -20,6 +21,7 @@ final class GetCurrentTemperatureHandler
         private readonly WeatherStationRepository $stationRepository,
         private readonly ClimateProviderFactory   $providerFactory,
         private readonly LastReadingCache          $lastReadingCache,
+        private readonly MetricsRecorder           $metrics,
     ) {}
 
     public function handle(GetCurrentTemperatureQuery $query): CurrentTemperatureResponse
@@ -43,6 +45,8 @@ final class GetCurrentTemperatureHandler
             if ($fallback === null) {
                 throw new NoCachedReadingAvailableException($query->stationId);
             }
+
+            $this->metrics->incrementCurrentTemperatureFallback();
 
             return $this->buildResponse($station, $fallback, stale: true, source: 'fallback-cache');
         }

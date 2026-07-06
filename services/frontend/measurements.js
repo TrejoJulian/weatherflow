@@ -1,10 +1,13 @@
 import { MONITOR, apiGet, apiPost, apiPut, apiDel } from './api.js';
-import { toast, openModal, closeModal, shortId, fmtDate, alertBadges } from './ui.js';
+import { toast, openModal, closeModal, shortId, fmtDate, alertBadges, renderList } from './ui.js';
 import { state, stationOptions } from './state.js';
+
+let measurementsPage = 1;
 
 export async function loadMeasurements(filters = {}) {
   const el = document.getElementById('measurements-list');
   el.innerHTML = '<div class="loading">Loading…</div>';
+  measurementsPage = 1;
 
   const params = new URLSearchParams();
   if (filters.stationName)  params.set('station_name', filters.stationName);
@@ -30,11 +33,16 @@ export async function loadMeasurements(filters = {}) {
 }
 
 function renderMeasurements(el, list) {
-  if (!list.length) {
-    el.innerHTML = '<div class="empty">No measurements found.</div>';
-    return;
-  }
-  el.innerHTML = `
+  renderList(el, list, {
+    emptyMessage: 'No measurements found.',
+    getPage: () => measurementsPage,
+    setPage: (page) => { measurementsPage = page; },
+    renderTable: measurementsTable,
+  });
+}
+
+function measurementsTable(list) {
+  return `
     <div class="table-wrap">
       <table>
         <thead>

@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
+use App\Application\Contracts\EventPublisher;
+use App\Application\Contracts\MetricsRecorder;
 use App\Application\Messaging\RawMeasurementHandler;
+use App\Domain\Measurement\Repositories\MeasurementRepository;
 use Illuminate\Support\Facades\Log;
 use OpenTelemetry\API\Globals;
 use OpenTelemetry\API\Trace\TracerInterface;
@@ -12,6 +15,7 @@ use OpenTelemetry\SDK\Trace\TracerProvider;
 use Tests\TestCase;
 use Tests\Unit\Domain\Measurement\FakeMeasurementRepository;
 use Tests\Unit\Infrastructure\Messaging\FakeEventPublisher;
+use Tests\Unit\Infrastructure\Metrics\FakeMetricsRecorder;
 
 uses(TestCase::class);
 
@@ -31,10 +35,11 @@ function rawMeasurementHandlerInMemoryTracer(): TracerInterface
 }
 
 function makeRawMeasurementHandler(
-    FakeMeasurementRepository $repository,
-    FakeEventPublisher $publisher,
+    MeasurementRepository $repository,
+    EventPublisher $publisher,
+    MetricsRecorder $metrics
 ): RawMeasurementHandler {
-    return new RawMeasurementHandler($repository, $publisher, rawMeasurementHandlerTracer(), 'alert-events');
+    return new RawMeasurementHandler($repository, $publisher, rawMeasurementHandlerTracer(), $metrics, 'alert-events');
 }
 
 function makeRawMeasurementPayload(
@@ -60,7 +65,9 @@ function makeRawMeasurementPayload(
 
 test('persists a measurement from raw payload without station lookup', function () {
     $repository = new FakeMeasurementRepository();
-    $handler    = makeRawMeasurementHandler($repository, new FakeEventPublisher());
+    $publisher = new FakeEventPublisher();
+    $metrics = new FakeMetricsRecorder();
+    $handler    = makeRawMeasurementHandler($repository, $publisher, $metrics);
 
     $handler->handle(makeRawMeasurementPayload());
 
@@ -74,7 +81,9 @@ test('persists a measurement from raw payload without station lookup', function 
 
 test('calculates extreme heat alert on raw ingestion', function () {
     $repository = new FakeMeasurementRepository();
-    $handler    = makeRawMeasurementHandler($repository, new FakeEventPublisher());
+    $publisher = new FakeEventPublisher();
+    $metrics = new FakeMetricsRecorder();
+    $handler    = makeRawMeasurementHandler($repository, $publisher, $metrics);
 
     $handler->handle(makeRawMeasurementPayload(temperature: 41.0));
 
@@ -85,7 +94,9 @@ test('calculates extreme heat alert on raw ingestion', function () {
 
 test('publishes AlertDetected event to alert-events queue when raw measurement has alert', function () {
     $publisher = new FakeEventPublisher();
-    $handler   = makeRawMeasurementHandler(new FakeMeasurementRepository(), $publisher);
+    $repository = new FakeMeasurementRepository();
+    $metrics = new FakeMetricsRecorder();
+    $handler    = makeRawMeasurementHandler($repository, $publisher, $metrics);
 
     $handler->handle(makeRawMeasurementPayload(temperature: 41.0));
 
@@ -99,15 +110,19 @@ test('publishes AlertDetected event to alert-events queue when raw measurement h
         ->and($events[0]['payload']['alert_types'])->toContain('extreme_heat');
 });
 
+
 test('AlertDetected payload includes trace_id from active span when otel is enabled', function () {
     config(['services.observability.otel_enabled' => true]);
 
     $publisher = new FakeEventPublisher();
     $tracer    = rawMeasurementHandlerInMemoryTracer();
+    $metrics   = new FakeMetricsRecorder();
+
     $handler   = new RawMeasurementHandler(
         new FakeMeasurementRepository(),
         $publisher,
         $tracer,
+        $metrics,
         'alert-events',
     );
 
@@ -131,7 +146,10 @@ test('AlertDetected payload includes trace_id from active span when otel is enab
 
 test('does not publish to alert-events queue when raw measurement has no alert', function () {
     $publisher = new FakeEventPublisher();
-    $handler   = makeRawMeasurementHandler(new FakeMeasurementRepository(), $publisher);
+    $repository = new FakeMeasurementRepository();
+    $metrics = new FakeMetricsRecorder();
+
+    $handler    = makeRawMeasurementHandler($repository, $publisher, $metrics);
 
     $handler->handle(makeRawMeasurementPayload(temperature: 20.0));
 

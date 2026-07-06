@@ -1,10 +1,13 @@
 import { CORE, apiGet, apiPost, apiPut, apiDel } from './api.js';
-import { toast, openModal, closeModal, shortId } from './ui.js';
+import { toast, openModal, closeModal, shortId, renderList } from './ui.js';
 import { state, stationOptions } from './state.js';
+
+let usersPage = 1;
 
 export async function loadUsers() {
   const el = document.getElementById('users-list');
   el.innerHTML = '<div class="loading">Loading…</div>';
+  usersPage = 1;
   try {
     const data = await apiGet(`${CORE}/users`);
     state.users = Array.isArray(data) ? data : (data?.data ?? []);
@@ -15,11 +18,16 @@ export async function loadUsers() {
 }
 
 function renderUsers(el, list) {
-  if (!list.length) {
-    el.innerHTML = '<div class="empty">No users found.</div>';
-    return;
-  }
-  el.innerHTML = `
+  renderList(el, list, {
+    emptyMessage: 'No users found.',
+    getPage: () => usersPage,
+    setPage: (page) => { usersPage = page; },
+    renderTable: usersTable,
+  });
+}
+
+function usersTable(list) {
+  return `
     <div class="table-wrap">
       <table>
         <thead>

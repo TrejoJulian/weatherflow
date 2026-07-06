@@ -91,7 +91,7 @@ final class ConsumeRawMeasurements extends Command
             return;
         }
 
-        $headers = $message->get('application_headers');
+        $headers = $message->get_properties()['application_headers'] ?? null;
         $parentContext = TraceContextCarrier::extractFromAmqpHeaders(
             $headers instanceof AMQPTable ? $headers : null,
         );
