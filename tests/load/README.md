@@ -15,8 +15,8 @@ Tests de carga sobre los endpoints de reporte, corridos con [K6](https://k6.io/)
 Cada script corre con uno de tres perfiles, seleccionado con `-e PROFILE=`:
 
 - **`smoke`** (default): 3 VUs constantes, 30 s — verifica que el endpoint responde bien bajo carga mínima.
-- **`load`**: rampa 0 → 10 → 20 VUs, ~3 min — régimen normal.
-- **`stress`**: rampa 0 → 20 → 50 VUs sostenidos, ~4 min — dónde y cómo se degrada.
+- **`load`**: rampa 0 → 10 → 20 VUs, ~2 min — régimen normal.
+- **`stress`**: rampa 0 → 20 → 50 VUs sostenidos, ~2 min — dónde y cómo se degrada. Duración pensada para poder mostrarlo en vivo en la presentación.
 
 Todos los perfiles validan los mismos thresholds (definidos en `lib/profiles.js`): `http_req_duration p95 < 500ms` y `http_req_failed < 1%`. Si no se cumplen, K6 termina con exit code ≠ 0.
 
