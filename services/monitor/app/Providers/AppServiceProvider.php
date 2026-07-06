@@ -16,6 +16,7 @@ use App\Infrastructure\Metrics\PrometheusMetricsRecorder;
 use App\Infrastructure\Persistence\MongoDB\MongoMeasurementRepository;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\ServiceProvider;
+use OpenTelemetry\API\Trace\TracerInterface;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -40,6 +41,7 @@ class AppServiceProvider extends ServiceProvider
             return new RawMeasurementHandler(
                 $app->make(MeasurementRepository::class),
                 $app->make(EventPublisher::class),
+                $app->make(TracerInterface::class),
                 $app->make(MetricsRecorder::class),
                 config('services.queues.alerts'),
             );

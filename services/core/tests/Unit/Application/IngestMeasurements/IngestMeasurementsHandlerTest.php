@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use App\Application\Contracts\EventPublisher;
+use App\Application\Contracts\LastReadingCache;
+use App\Application\Contracts\MetricsRecorder;
 use App\Application\IngestMeasurements\IngestMeasurementsHandler;
 use App\Domain\User\ValueObjects\UserId;
 use App\Domain\WeatherStation\Clients\ClimateProvider;
@@ -11,6 +13,11 @@ use App\Domain\WeatherStation\ValueObjects\ClimateReading;
 use App\Domain\WeatherStation\ValueObjects\Location;
 use App\Domain\WeatherStation\ValueObjects\StationId;
 use App\Infrastructure\Http\Clients\ClimateProviderFactory;
+use OpenTelemetry\API\Globals;
+use OpenTelemetry\API\Trace\TracerInterface;
+use OpenTelemetry\SDK\Trace\SpanExporter\InMemorySpanExporterFactory;
+use OpenTelemetry\SDK\Trace\SpanProcessor\SimpleSpanProcessor;
+use OpenTelemetry\SDK\Trace\TracerProvider;
 use Tests\TestCase;
 use Tests\Unit\Domain\WeatherStation\FakeClimateProvider;
 use Tests\Unit\Domain\WeatherStation\FakeWeatherStationRepository;
@@ -18,8 +25,30 @@ use Tests\Unit\Infrastructure\Cache\FakeLastReadingCache;
 use Tests\Unit\Infrastructure\Cache\FaultyLastReadingCache;
 use Tests\Unit\Infrastructure\Messaging\FakeEventPublisher;
 use Tests\Unit\Infrastructure\Metrics\FakeMetricsRecorder;
+use App\Domain\WeatherStation\Repositories\WeatherStationRepository;
 
 uses(TestCase::class);
+
+function ingestHandlerTracer(): TracerInterface
+{
+    return Globals::tracerProvider()->getTracer('test');
+}
+
+function ingestHandlerInMemoryTracer(): TracerInterface
+{
+    return TracerProvider::builder()
+        ->addSpanProcessor(new SimpleSpanProcessor((new InMemorySpanExporterFactory())->create()))
+        ->build()
+        ->getTracer('test');
+}
+
+function makeIngestMeasurementHandler(FakeWeatherStationRepository $repository,
+                                      ClimateProviderFactory $factory,
+                                      EventPublisher $publisher,
+                                      LastReadingCache $lastReading,
+                                      MetricsRecorder $metrics): IngestMeasurementsHandler {
+    return new IngestMeasurementsHandler($repository, $factory, $publisher, $lastReading, ingestHandlerTracer(), $metrics, 'raw-measurements');
+}
 
 test('caches the reading and publishes the measurement on a successful tick', function () {
     $repository = new FakeWeatherStationRepository;
@@ -36,8 +65,11 @@ test('caches the reading and publishes the measurement on a successful tick', fu
     $factory = new ClimateProviderFactory(new FakeClimateProvider($reading));
     $publisher = new FakeEventPublisher;
     $cache = new FakeLastReadingCache;
+    $metrics = new FakeMetricsRecorder;
 
-    new IngestMeasurementsHandler($repository, $factory, $publisher, $cache, new FakeMetricsRecorder, 'raw-measurements')->handle();
+    $handler = makeIngestMeasurementHandler($repository, $factory, $publisher, $cache, $metrics);
+
+    $handler->handle();
 
     expect($cache->wasPut($station->id()))->toBeTrue()
         ->and($cache->get($station->id()))->toBe($reading)
@@ -58,8 +90,12 @@ test('a cache write failure does not abort ingestion or publishing', function ()
     $reading = new ClimateReading(21.4, 70.0, 1012.0, new DateTimeImmutable);
     $factory = new ClimateProviderFactory(new FakeClimateProvider($reading));
     $publisher = new FakeEventPublisher;
+    $cache = new FaultyLastReadingCache();
+    $metrics = new FakeMetricsRecorder;
 
-    new IngestMeasurementsHandler($repository, $factory, $publisher, new FaultyLastReadingCache, new FakeMetricsRecorder, 'raw-measurements')->handle();
+    $handler = makeIngestMeasurementHandler($repository, $factory, $publisher, $cache, $metrics);
+
+    $handler->handle();
 
     expect($publisher->wasPublishedTo('raw-measurements'))->toBeTrue();
 });
@@ -87,7 +123,9 @@ test('does not cache or publish when the provider fails', function () {
     $cache = new FakeLastReadingCache;
     $metrics = new FakeMetricsRecorder;
 
-    new IngestMeasurementsHandler($repository, $factory, $publisher, $cache, $metrics, 'raw-measurements')->handle();
+    $handler = makeIngestMeasurementHandler($repository, $factory, $publisher, $cache, $metrics);
+
+    $handler->handle();
 
     expect($cache->getPutCount())->toBe(0)
         ->and($publisher->wasPublishedTo('raw-measurements'))->toBeFalse()
@@ -118,8 +156,11 @@ test('a provider failure on one station does not stop caching and publishing the
     $factory = new ClimateProviderFactory($provider);
     $publisher = new FakeEventPublisher;
     $cache = new FakeLastReadingCache;
+    $metrics = new FakeMetricsRecorder;
 
-    new IngestMeasurementsHandler($repository, $factory, $publisher, $cache, new FakeMetricsRecorder, 'raw-measurements')->handle();
+    $handler = makeIngestMeasurementHandler($repository, $factory, $publisher, $cache, $metrics);
+
+    $handler->handle();
 
     expect($cache->wasPut($workingStation->id()))->toBeTrue()
         ->and($cache->wasPut($failingStation->id()))->toBeFalse()
@@ -137,9 +178,8 @@ test('a publish failure on one station does not stop publishing the others', fun
     $reading = new ClimateReading(21.4, 70.0, 1012.0, new DateTimeImmutable);
     $factory = new ClimateProviderFactory(new FakeClimateProvider($reading));
     $cache = new FakeLastReadingCache;
+    $metrics = new FakeMetricsRecorder;
 
-    // Simulates RabbitMQ being unreachable for one station: publishing that
-    // measurement throws (as AMQPStreamConnection would after connection_timeout).
     $publisher = new class($unreachableStation->id()->value()) implements EventPublisher
     {
         /** @var array<array{queue: string, payload: array}> */
@@ -157,8 +197,40 @@ test('a publish failure on one station does not stop publishing the others', fun
         }
     };
 
-    new IngestMeasurementsHandler($repository, $factory, $publisher, $cache, new FakeMetricsRecorder, 'raw-measurements')->handle();
+    $handler = makeIngestMeasurementHandler($repository, $factory, $publisher, $cache, $metrics);
+
+    $handler->handle();
 
     expect($publisher->published)->toHaveCount(1)
         ->and($publisher->published[0]['payload']['station_id'])->toBe($workingStation->id()->value());
+});
+
+test('published payload carries W3C trace_id from active span when otel is enabled', function () {
+    config(['services.observability.otel_enabled' => true]);
+
+    $repository = new FakeWeatherStationRepository;
+
+    $station = WeatherStation::create(
+        StationId::generate(),
+        UserId::fromString('00000000-0000-4000-a000-000000000001'),
+        'Estación Central',
+        new Location(-34.9, -58.3),
+        'Sensor 1',
+    );
+    $repository->seed($station);
+
+    $reading = new ClimateReading(21.4, 70.0, 1012.0, new DateTimeImmutable);
+    $factory = new ClimateProviderFactory(new FakeClimateProvider($reading));
+    $publisher = new FakeEventPublisher;
+    $cache = new FakeLastReadingCache;
+    $metrics = new FakeMetricsRecorder;
+
+    $handler = new IngestMeasurementsHandler($repository, $factory, $publisher, $cache, ingestHandlerInMemoryTracer(), $metrics,'raw-measurements');
+
+    $handler->handle();
+
+    $published = $publisher->getPublishedTo('raw-measurements')[0]['payload'];
+
+    expect($published['trace_id'])->toMatch('/^[0-9a-f]{32}$/')
+        ->and($published['trace_id'])->not->toStartWith('ingest-');
 });

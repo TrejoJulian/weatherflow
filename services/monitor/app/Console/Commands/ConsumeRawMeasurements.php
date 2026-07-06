@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Application\Messaging\RawMeasurementHandler;
+use App\Infrastructure\Observability\TraceContextCarrier;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
+use OpenTelemetry\API\Trace\SpanKind;
+use OpenTelemetry\API\Trace\TracerInterface;
 use PhpAmqpLib\Channel\AMQPChannel;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Exception\AMQPExceptionInterface;
@@ -19,7 +22,7 @@ final class ConsumeRawMeasurements extends Command
     protected $signature   = 'monitor:consume-raw-measurements';
     protected $description = 'Consume raw-measurements from RabbitMQ and persist ingested readings';
 
-    public function handle(RawMeasurementHandler $handler): int
+    public function handle(RawMeasurementHandler $handler, TracerInterface $tracer): int
     {
         try {
             $connection = new AMQPStreamConnection(
@@ -45,8 +48,8 @@ final class ConsumeRawMeasurements extends Command
                 no_ack:       false,
                 exclusive:    false,
                 nowait:       false,
-                callback:     function (AMQPMessage $message) use ($handler, $channel, $rawMeasurementsQueue): void {
-                    $this->process($message, $handler, $channel, $rawMeasurementsQueue);
+                callback:     function (AMQPMessage $message) use ($handler, $channel, $rawMeasurementsQueue, $tracer): void {
+                    $this->process($message, $handler, $channel, $rawMeasurementsQueue, $tracer);
                 },
             );
 
@@ -74,7 +77,7 @@ final class ConsumeRawMeasurements extends Command
      * - success or a permanent failure (unparseable / missing fields): ack and move on;
      * - transient failure (e.g. persistence down): requeue with a bounded retry counter.
      */
-    private function process(AMQPMessage $message, RawMeasurementHandler $handler, AMQPChannel $channel, string $queue): void
+    private function process(AMQPMessage $message, RawMeasurementHandler $handler, AMQPChannel $channel, string $queue, TracerInterface $tracer): void
     {
         $payload = json_decode($message->body, true);
 
@@ -88,6 +91,18 @@ final class ConsumeRawMeasurements extends Command
             return;
         }
 
+        $headers = $message->get_properties()['application_headers'] ?? null;
+        $parentContext = TraceContextCarrier::extractFromAmqpHeaders(
+            $headers instanceof AMQPTable ? $headers : null,
+        );
+        $parentScope = $parentContext->activate();
+
+        $span = $tracer->spanBuilder('consume')
+            ->setSpanKind(SpanKind::KIND_CONSUMER)
+            ->setAttribute('station_id', $payload['station_id'])
+            ->startSpan();
+        $spanScope = $span->activate();
+
         try {
             $handler->handle($payload);
             Log::info('Raw measurement processed', [
@@ -98,6 +113,10 @@ final class ConsumeRawMeasurements extends Command
             $message->ack();
         } catch (Throwable $exception) {
             $this->requeueOrDiscard($message, $channel, $queue, $exception, $payload);
+        } finally {
+            $spanScope->detach();
+            $span->end();
+            $parentScope->detach();
         }
     }
 
@@ -149,7 +168,7 @@ final class ConsumeRawMeasurements extends Command
 
         $retried = new AMQPMessage($message->body, [
             'delivery_mode'       => AMQPMessage::DELIVERY_MODE_PERSISTENT,
-            'application_headers' => new AMQPTable(['x-retry-count' => $retryCount + 1]),
+            'application_headers' => TraceContextCarrier::buildRetryHeaders($message, $retryCount + 1),
         ]);
         $channel->basic_publish($retried, '', $queue);
         $message->ack();
@@ -157,12 +176,6 @@ final class ConsumeRawMeasurements extends Command
 
     private function retryCount(AMQPMessage $message): int
     {
-        $headers = $message->get_properties()['application_headers'] ?? null;
-
-        if ($headers instanceof AMQPTable) {
-            return (int) ($headers->getNativeData()['x-retry-count'] ?? 0);
-        }
-
-        return 0;
+        return (int) (TraceContextCarrier::applicationHeadersFromMessage($message)['x-retry-count'] ?? 0);
     }
 }

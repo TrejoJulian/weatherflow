@@ -48,6 +48,7 @@ return [
         'owm_connect_timeout' => (int) env('OWM_CONNECT_TIMEOUT', 3),
         'owm_timeout'         => (int) env('OWM_TIMEOUT', 8),
         'owm_retries'         => (int) env('OWM_RETRIES', 3),
+        'owm_fresh_ttl'       => (int) env('OWM_FRESH_TTL', 60),
         'owm_cache_ttl'       => (int) env('OWM_CACHE_TTL', 600),
         'breaker_threshold'   => (int) env('OWM_BREAKER_THRESHOLD', 5),
         'breaker_reset'       => (int) env('OWM_BREAKER_RESET', 30),
@@ -68,7 +69,9 @@ return [
     ],
 
     'observability' => [
-        'service_name' => env('OTEL_SERVICE_NAME', 'weatherflow-core'),
+        'service_name'      => env('OTEL_SERVICE_NAME', 'weatherflow-core'),
+        'otel_enabled'      => filter_var(env('OTEL_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+        'otel_exporter_url' => env('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://otel-collector:4318'),
     ],
 
 ];

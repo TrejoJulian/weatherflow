@@ -166,7 +166,7 @@ function rabbitMQTestConnection(): AMQPStreamConnection
     );
 }
 
-function publishMessageToQueue(string $queue, array $payload): void
+function publishMessageToQueue(string $queue, array $payload, array $headers = []): void
 {
     $connection = rabbitMQTestConnection();
     $channel    = $connection->channel();
@@ -180,17 +180,53 @@ function publishMessageToQueue(string $queue, array $payload): void
             auto_delete: false,
         );
 
+        $properties = [
+            'content_type'  => 'application/json',
+            'delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT,
+        ];
+
+        if ($headers !== []) {
+            $properties['application_headers'] = new \PhpAmqpLib\Wire\AMQPTable($headers);
+        }
+
         $channel->basic_publish(
             msg: new AMQPMessage(
                 body:       json_encode($payload),
-                properties: [
-                    'content_type'  => 'application/json',
-                    'delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT,
-                ],
+                properties: $properties,
             ),
             exchange:    '',
             routing_key: $queue,
         );
+    } finally {
+        $channel->close();
+        $connection->close();
+    }
+}
+
+/** @return array<string, mixed>|null */
+function peekMessageHeadersFromQueue(string $queue): ?array
+{
+    $connection = rabbitMQTestConnection();
+    $channel    = $connection->channel();
+
+    try {
+        $channel->queue_declare(
+            queue:       $queue,
+            passive:     false,
+            durable:     true,
+            exclusive:   false,
+            auto_delete: false,
+        );
+
+        $message = $channel->basic_get($queue);
+
+        if ($message === null) {
+            return null;
+        }
+
+        $headers = $message->get('application_headers');
+
+        return $headers instanceof \PhpAmqpLib\Wire\AMQPTable ? $headers->getNativeData() : [];
     } finally {
         $channel->close();
         $connection->close();
@@ -212,8 +248,7 @@ function rawMeasurementPayload(array $overrides = []): array
     ], $overrides);
 }
 
-function waitForMeasurement(string $stationId, int $timeoutSeconds = 10): MeasurementModel
-{
+function waitForMeasurement(string $stationId, int $timeoutSeconds = 10): MeasurementModel {
     $deadline = time() + $timeoutSeconds;
 
     while (time() < $deadline) {

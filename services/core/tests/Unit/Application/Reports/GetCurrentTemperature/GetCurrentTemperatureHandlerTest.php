@@ -31,7 +31,7 @@ function seededStation(string $name = 'Universidad Nacional de Quilmes'): Weathe
     );
 }
 
-test('always queries the provider live even when a reading is cached', function () {
+test('serves the fresh cached reading without querying the provider', function () {
     $station = seededStation();
     $stationRepo = new FakeWeatherStationRepository();
     $stationRepo->seed($station);
@@ -39,16 +39,32 @@ test('always queries the provider live even when a reading is cached', function 
     $cache = new FakeLastReadingCache;
     $cache->put($station->id(), new ClimateReading(19.0, 60.0, 1010.0, new DateTimeImmutable('2026-06-08T14:00:00Z')));
 
+    $factory = new ClimateProviderFactory(new ThrowingFakeClimateProvider(new ClimateProviderUnavailableException));
+
+    $response = (new GetCurrentTemperatureHandler($stationRepo, $factory, $cache, new FakeMetricsRecorder()))
+        ->handle(new GetCurrentTemperatureQuery($station->id()->value()));
+
+    expect($response)->toBeInstanceOf(CurrentTemperatureResponse::class)
+        ->and($response->temperature)->toBe(19.0)
+        ->and($response->stale)->toBeFalse()
+        ->and($response->source)->toBe('cache');
+});
+
+test('writes the live reading through to the cache on a miss', function () {
+    $station = seededStation();
+    $stationRepo = new FakeWeatherStationRepository();
+    $stationRepo->seed($station);
+
+    $cache = new FakeLastReadingCache;
     $liveReading = new ClimateReading(21.4, 70.0, 1012.0, new DateTimeImmutable('2026-06-08T15:00:00Z'));
     $factory = new ClimateProviderFactory(new FakeClimateProvider($liveReading));
 
     $response = (new GetCurrentTemperatureHandler($stationRepo, $factory, $cache, new FakeMetricsRecorder))
         ->handle(new GetCurrentTemperatureQuery($station->id()->value()));
 
-    expect($response)->toBeInstanceOf(CurrentTemperatureResponse::class)
-        ->and($response->temperature)->toBe(21.4)
-        ->and($response->stale)->toBeFalse()
-        ->and($response->source)->toBe('live');
+    expect($response->source)->toBe('live')
+        ->and($cache->wasPut($station->id()))->toBeTrue()
+        ->and($cache->get($station->id())->temperature)->toBe(21.4);
 });
 
 test('returns a live reading from the provider', function () {
@@ -74,6 +90,7 @@ test('serves the stale fallback when the provider is unavailable', function () {
 
     $cache = new FakeLastReadingCache;
     $cache->put($station->id(), new ClimateReading(20.8, 55.0, 1008.0, new DateTimeImmutable('2026-06-08T14:50:00Z')));
+    $cache->expireFreshEntries();
 
     $factory = new ClimateProviderFactory(new ThrowingFakeClimateProvider(new ClimateProviderUnavailableException));
     $metrics = new FakeMetricsRecorder;
