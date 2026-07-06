@@ -89,8 +89,8 @@ class AppServiceProvider extends ServiceProvider
                 $app->make(ClimateProviderFactory::class),
                 $app->make(EventPublisher::class),
                 $app->make(LastReadingCache::class),
-                $app->make(MetricsRecorder::class),
                 $app->make(TracerInterface::class),
+                $app->make(MetricsRecorder::class),
                 config('services.queues.raw_measurements'),
             );
         });
