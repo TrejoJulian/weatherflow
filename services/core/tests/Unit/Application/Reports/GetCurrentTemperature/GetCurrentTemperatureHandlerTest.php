@@ -39,11 +39,9 @@ test('serves the fresh cached reading without querying the provider', function (
     $cache = new FakeLastReadingCache;
     $cache->put($station->id(), new ClimateReading(19.0, 60.0, 1010.0, new DateTimeImmutable('2026-06-08T14:00:00Z')));
 
-    // A throwing provider proves the fast path never reaches it: if it did,
-    // the handler would fall back and the response would be stale.
     $factory = new ClimateProviderFactory(new ThrowingFakeClimateProvider(new ClimateProviderUnavailableException));
 
-    $response = (new GetCurrentTemperatureHandler($stationRepo, $factory, $cache))
+    $response = (new GetCurrentTemperatureHandler($stationRepo, $factory, $cache, new FakeMetricsRecorder()))
         ->handle(new GetCurrentTemperatureQuery($station->id()->value()));
 
     expect($response)->toBeInstanceOf(CurrentTemperatureResponse::class)
