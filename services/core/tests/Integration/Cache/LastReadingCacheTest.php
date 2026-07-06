@@ -53,7 +53,33 @@ test('sets a TTL taken from config on the cached reading', function () {
         ->and($ttl)->toBeLessThanOrEqual(600);
 });
 
-test('serves the fallback key ignoring TTL after the fresh key expires', function () {
+test('sets the fresh TTL taken from config on the fresh key', function () {
+    config(['services.resilience.owm_fresh_ttl' => 60]);
+    $stationId = StationId::generate();
+
+    app(LastReadingCache::class)->put($stationId, new ClimateReading(20.0, 50.0, 1000.0, new DateTimeImmutable));
+
+    $freshTtl = Redis::connection()->ttl("owm:fresh:{$stationId->value()}");
+
+    expect($freshTtl)->toBeGreaterThan(0)
+        ->and($freshTtl)->toBeLessThanOrEqual(60);
+});
+
+test('getFresh stops serving after the fresh key expires while get still does', function () {
+    $cache = app(LastReadingCache::class);
+    $stationId = StationId::generate();
+
+    $cache->put($stationId, new ClimateReading(18.5, 65.0, 1005.0, new DateTimeImmutable('2026-06-29T14:50:00Z')));
+
+    expect($cache->getFresh($stationId))->toBeInstanceOf(ClimateReading::class);
+
+    Redis::connection()->del("owm:fresh:{$stationId->value()}");
+
+    expect($cache->getFresh($stationId))->toBeNull()
+        ->and($cache->get($stationId))->toBeInstanceOf(ClimateReading::class);
+});
+
+test('serves the fallback key ignoring TTL after the last key expires', function () {
     $cache = app(LastReadingCache::class);
     $stationId = StationId::generate();
     $reading = new ClimateReading(18.5, 65.0, 1005.0, new DateTimeImmutable('2026-06-29T14:50:00Z'));
