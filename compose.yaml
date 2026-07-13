@@ -176,6 +176,7 @@ services:
       GF_USERS_ALLOW_SIGN_UP: 'false'
     volumes:
       - './observability/grafana/provisioning:/etc/grafana/provisioning:ro'
+      - './observability/grafana/dashboards:/var/lib/grafana/dashboards:ro'
       - 'grafana-data:/var/lib/grafana'
     networks:
       - weatherflow
@@ -238,11 +239,27 @@ services:
     container_name: weatherflow-cadvisor
     image: 'gcr.io/cadvisor/cadvisor:v0.49.1'
     privileged: true
+    command:
+      - '--docker_only=true'
+      - '--store_container_labels=true'
+      - '--docker=unix:///var/run/docker.sock'
     volumes:
       - '/:/rootfs:ro'
-      - '/var/run:/var/run:ro'
+      - '/var/run/docker.sock:/var/run/docker.sock:ro'
       - '/sys:/sys:ro'
-      - '/var/lib/docker:/var/lib/docker:ro'
+    networks:
+      - weatherflow
+
+  # En Docker Desktop (Mac) cAdvisor no puede leer overlayfs del VM;
+  # este exporter consulta la Docker API y expone CPU/mem/red por contenedor.
+  docker-stats-exporter:
+    container_name: weatherflow-docker-stats-exporter
+    image: 'ghcr.io/fabienpiette/docker-stats-exporter:latest'
+    user: root
+    volumes:
+      - '/var/run/docker.sock:/var/run/docker.sock:ro'
+    expose:
+      - '9200'
     networks:
       - weatherflow
 

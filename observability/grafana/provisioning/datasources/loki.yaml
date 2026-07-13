@@ -5,6 +5,7 @@ datasources:
     type: loki
     access: proxy
     url: http://loki:3100
+    uid: loki
     jsonData:
       # Derived field: detecta un trace_id W3C (32 hex) en la línea de log y ofrece
       # un link directo al trace en Tempo. El $$ escapa la interpolación de
